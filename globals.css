@@ -1,0 +1,2 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #0F0E0C; color: #F2EDE4; min-height: 100vh; -webkit-font-smoothing: antialiased; }
