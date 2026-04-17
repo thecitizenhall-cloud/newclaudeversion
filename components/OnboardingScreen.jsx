@@ -297,7 +297,7 @@ function StepZK({ user, hood, onNext }) {
   );
 }
 
-function StepWelcome({ user, hood }) {
+function StepWelcome({ user, hood, onComplete }) {
   return (
     <>
       <div className="th-header">
@@ -320,13 +320,13 @@ function StepWelcome({ user, hood }) {
             <div key={s} className="next-step"><div className="next-step-num">{i + 1}</div><span style={{ flex: 1 }}>{s}</span><ArrowRight /></div>
           ))}
         </div>
-        <button className="th-btn th-btn-primary">Open Townhall</button>
+        <button className="th-btn th-btn-primary" onClick={onComplete}>Open Townhall</button>
       </div>
     </>
   );
 }
 
-export default function OnboardingScreen() {
+export default function OnboardingScreen({ onComplete }) {
   const [step, setStep] = useState(1);
   const [user, setUser] = useState(null);
   const [hood, setHood] = useState(null);
@@ -338,7 +338,7 @@ export default function OnboardingScreen() {
         {step === 1 && <StepAccount onNext={data => { setUser(data); setStep(2); }} />}
         {step === 2 && <StepNeighborhood onNext={data => { setHood(data.hood); setStep(3); }} />}
         {step === 3 && <StepZK user={user} hood={hood} onNext={() => setStep(4)} />}
-        {step === 4 && <StepWelcome user={user} hood={hood} />}
+        {step === 4 && <StepWelcome user={user} hood={hood} onComplete={onComplete} />}
       </div>
     </>
   );
