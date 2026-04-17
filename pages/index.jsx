@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { supabase } from "../lib/supabase";
 
 const OnboardingScreen    = dynamic(() => import("../components/OnboardingScreen"),    { ssr: false, loading: () => <Loader /> });
 const FeedScreen          = dynamic(() => import("../components/FeedScreen"),          { ssr: false, loading: () => <Loader /> });
@@ -43,11 +44,29 @@ function NavBar({ screen, setScreen }) {
 }
 
 export default function Home() {
-  const [screen, setScreen] = useState("onboarding");
+  // "loading" | "onboarding" | "feed" | "expert" | "notifications"
+  const [screen, setScreen] = useState("loading");
 
-  if (screen === "onboarding") {
-    return <OnboardingScreen onComplete={() => setScreen("feed")} />;
-  }
+  useEffect(() => {
+    // Check if user already has a session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setScreen(session ? "feed" : "onboarding");
+    });
+
+    // Listen for auth changes (login / logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setScreen("feed");
+      } else {
+        setScreen("onboarding");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (screen === "loading")     return <Loader />;
+  if (screen === "onboarding")  return <OnboardingScreen />;
 
   return (
     <>
