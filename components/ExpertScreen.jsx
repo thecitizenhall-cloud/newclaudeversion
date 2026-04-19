@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
+import ApplyExpert from "./ApplyExpert";
 
 const T = {
   bg:         "#0F0E0C",
@@ -43,6 +44,7 @@ const css = `
   @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
   @keyframes popIn   { 0%{transform:scale(0.92);opacity:0} 70%{transform:scale(1.02)} 100%{transform:scale(1);opacity:1} }
   @keyframes spin    { to{transform:rotate(360deg)} }
+  @keyframes slideUp { from{opacity:0;transform:translateY(100%)} to{opacity:1;transform:translateY(0)} }
   @keyframes glow    { 0%,100%{box-shadow:0 0 0 0 ${T.purpleMid}44} 50%{box-shadow:0 0 0 6px ${T.purpleMid}00} }
 
   /* ── Layout ── */
@@ -161,7 +163,24 @@ const css = `
   .expert-stat-label{font-size:10px;color:${T.creamFaint};}
 
   /* ── Apply panel ── */
-  import ApplyExpert from "./ApplyExpert";
+  .apply-panel{margin:0 22px 20px;background:${T.surface};border:1px solid ${T.border};border-radius:12px;overflow:hidden;animation:fadeUp 0.35s ease both;}
+  @media(max-width:767px){.apply-panel{margin:0 16px 16px;}}
+  .apply-header{background:${T.purpleLo};padding:14px 18px;border-bottom:1px solid ${T.purpleMid}44;font-family:'DM Serif Display',serif;font-size:16px;color:${T.cream};}
+  .apply-header em{font-style:italic;color:${T.purpleHi};}
+  .apply-body{padding:16px 18px;display:flex;flex-direction:column;gap:12px;}
+  .apply-field label{display:block;font-size:11px;font-weight:500;color:${T.creamDim};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;}
+  .apply-input{width:100%;background:${T.bg};border:1px solid ${T.border};border-radius:7px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:${T.cream};outline:none;transition:border-color 0.2s;-webkit-appearance:none;}
+  .apply-input:focus{border-color:${T.purple};}
+  .apply-input::placeholder{color:${T.creamFaint};}
+  .domain-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .domain-sel-chip{padding:7px 10px;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid ${T.border};color:${T.creamDim};transition:all 0.15s;text-align:center;}
+  .domain-sel-chip:hover{border-color:${T.borderHi};color:${T.cream};}
+  .domain-sel-chip.sel{background:${T.purpleLo};border-color:${T.purpleMid};color:${T.purpleHi};}
+  .apply-submit{background:${T.purple};color:#fff;border:none;border-radius:8px;padding:11px;width:100%;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;}
+  .apply-submit:hover{background:${T.purpleHi};color:${T.bg};}
+  .apply-submit:disabled{opacity:0.4;cursor:not-allowed;}
+  .apply-success{padding:24px;text-align:center;animation:popIn 0.4s ease both;}
+  .apply-success-icon{width:52px;height:52px;border-radius:50%;border:2px solid ${T.tealHi};display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
 
   /* ── Trust panel ── */
   .trust-panel{background:${T.surface};border-left:1px solid ${T.border};display:flex;flex-direction:column;overflow-y:auto;}
@@ -339,63 +358,18 @@ function QuestionCard({q, isExpert, currentUserId, onUpvote, onAnswer, isNew}){
   );
 }
 
-// ── Apply Panel ───────────────────────────────────────────────────────────
+// ── Apply Panel — sheet wrapping ApplyExpert ─────────────────────────────
 function ApplyPanel({onClose, onSuccess}){
-  const [form,setForm]=useState({name:"",org:"",license:""});
-  const [selDomains,setSelDomains]=useState([]);
-  const [submitting,setSubmitting]=useState(false);
-  const [done,setDone]=useState(false);
-  const valid=form.name&&form.org&&selDomains.length>0;
-  function toggleDomain(k){setSelDomains(ds=>ds.includes(k)?ds.filter(d=>d!==k):[...ds,k]);}
-
-  async function submit(){
-    if(!valid) return;
-    setSubmitting(true);
-    const {data:{user}}=await supabase.auth.getUser();
-    if(user){
-      await supabase.from("profiles").update({
-        is_expert:true, expert_domains:selDomains,
-        expert_org:form.org, display_name:form.name,
-        updated_at:new Date().toISOString(),
-      }).eq("id",user.id);
-    }
-    setTimeout(()=>{setDone(true);onSuccess();},800);
-  }
-
-  if(done) return(
-    <div className="apply-panel">
-      <div className="apply-success">
-        <div className="apply-success-icon"><CheckIcon color={T.tealHi} size={22}/></div>
-        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:16,color:T.cream,marginBottom:6}}>Expert status granted</div>
-        <div style={{fontSize:13,color:T.creamDim,lineHeight:1.6}}>You can now answer questions in your domain areas.</div>
-        <button className="cancel-btn" style={{marginTop:14,width:"100%"}} onClick={onClose}>Close</button>
-      </div>
-    </div>
-  );
-
   return(
-    <div className="apply-panel">
-      <div className="apply-header">Apply as an <em>expert</em></div>
-      <div className="apply-body">
-        <div className="apply-field"><label>Full name + credentials</label><input className="apply-input" placeholder="Dr. Jane Smith, PE" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></div>
-        <div className="apply-field"><label>Organisation or affiliation</label><input className="apply-input" placeholder="City Planning Dept / AICP member" value={form.org} onChange={e=>setForm(f=>({...f,org:e.target.value}))}/></div>
-        <div className="apply-field"><label>Credential number (optional)</label><input className="apply-input" placeholder="e.g. PE-12345" value={form.license} onChange={e=>setForm(f=>({...f,license:e.target.value}))}/></div>
-        <div className="apply-field">
-          <label>Domains you can answer in</label>
-          <div className="domain-grid">
-            {DOMAINS.map(d=>(
-              <div key={d.key} className={`domain-sel-chip${selDomains.includes(d.key)?" sel":""}`} onClick={()=>toggleDomain(d.key)}>{d.label}</div>
-            ))}
-          </div>
-        </div>
-        <button className="apply-submit" disabled={!valid||submitting} onClick={submit}>
-          {submitting?<span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}><span className="th-spinner" style={{borderTopColor:"#fff"}}/>Submitting…</span>:"Submit for review"}
-        </button>
+    <>
+      <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:100}}/>
+      <div style={{position:"fixed",left:0,right:0,bottom:0,background:T.surface,borderRadius:"16px 16px 0 0",borderTop:`1px solid ${T.border}`,maxHeight:"90vh",overflowY:"auto",zIndex:101}}>
+        <div style={{width:36,height:4,borderRadius:99,background:T.border,margin:"12px auto 0"}}/>
+        <ApplyExpert onClose={onClose} onSuccess={onSuccess}/>
       </div>
-    </div>
+    </>
   );
 }
-
 // ── Trust Panel ───────────────────────────────────────────────────────────
 function TrustPanel({profile}){
   const score=profile?.trust_score||0;
