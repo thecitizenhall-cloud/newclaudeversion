@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
 // ── Change this to your email address ─────────────────────────────────────
-const ADMIN_EMAIL = "your@email.com";
+const ADMIN_EMAIL = "thecitizenhall@gmail.com";
 
 const T = {
   bg:"#0F0E0C", surface:"#1A1916", border:"#2C2A26", borderHi:"#4A4640",
