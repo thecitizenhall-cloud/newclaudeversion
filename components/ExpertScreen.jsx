@@ -161,24 +161,7 @@ const css = `
   .expert-stat-label{font-size:10px;color:${T.creamFaint};}
 
   /* ── Apply panel ── */
-  .apply-panel{margin:0 22px 20px;background:${T.surface};border:1px solid ${T.border};border-radius:12px;overflow:hidden;animation:fadeUp 0.35s ease both;}
-  @media(max-width:767px){.apply-panel{margin:0 16px 16px;}}
-  .apply-header{background:${T.purpleLo};padding:14px 18px;border-bottom:1px solid ${T.purpleMid}44;font-family:'DM Serif Display',serif;font-size:16px;color:${T.cream};}
-  .apply-header em{font-style:italic;color:${T.purpleHi};}
-  .apply-body{padding:16px 18px;display:flex;flex-direction:column;gap:12px;}
-  .apply-field label{display:block;font-size:11px;font-weight:500;color:${T.creamDim};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;}
-  .apply-input{width:100%;background:${T.bg};border:1px solid ${T.border};border-radius:7px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:${T.cream};outline:none;transition:border-color 0.2s;-webkit-appearance:none;}
-  .apply-input:focus{border-color:${T.purple};}
-  .apply-input::placeholder{color:${T.creamFaint};}
-  .domain-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
-  .domain-sel-chip{padding:7px 10px;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid ${T.border};color:${T.creamDim};transition:all 0.15s;text-align:center;}
-  .domain-sel-chip:hover{border-color:${T.borderHi};color:${T.cream};}
-  .domain-sel-chip.sel{background:${T.purpleLo};border-color:${T.purpleMid};color:${T.purpleHi};}
-  .apply-submit{background:${T.purple};color:#fff;border:none;border-radius:8px;padding:11px;width:100%;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;}
-  .apply-submit:hover{background:${T.purpleHi};color:${T.bg};}
-  .apply-submit:disabled{opacity:0.4;cursor:not-allowed;}
-  .apply-success{padding:24px;text-align:center;animation:popIn 0.4s ease both;}
-  .apply-success-icon{width:52px;height:52px;border-radius:50%;border:2px solid ${T.tealHi};display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+  import ApplyExpert from "./ApplyExpert";
 
   /* ── Trust panel ── */
   .trust-panel{background:${T.surface};border-left:1px solid ${T.border};display:flex;flex-direction:column;overflow-y:auto;}
