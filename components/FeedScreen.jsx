@@ -363,7 +363,8 @@ export default function FeedScreen({ onNavigate }) {
   const [newPostIds,   setNewPostIds]   = useState([]);
   const [newIssueIds,  setNewIssueIds]  = useState([]);
   const [currentUser,  setCurrentUser]  = useState(null);
-  const [neighborhood, setNeighborhood] = useState("Riverdale");
+  const [neighborhood,   setNeighborhood]   = useState("Riverdale");
+  const [neighborhoodId,  setNeighborhoodId]  = useState(null);
   const [showIssues,   setShowIssues]   = useState(false); // mobile civic sheet
   const toastTimer  = useRef(null);
   const channelRef  = useRef(null);
@@ -379,9 +380,20 @@ export default function FeedScreen({ onNavigate }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCurrentUser(user);
-        setNeighborhood(user.user_metadata?.neighborhood || "Riverdale");
+        const hood = user.user_metadata?.neighborhood || "Riverdale";
+        setNeighborhood(hood);
+        // Fetch the neighborhood_id for filtering
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("neighborhood_id")
+          .eq("id", user.id)
+          .single();
+        const hoodId = prof?.neighborhood_id || null;
+        setNeighborhoodId(hoodId);
+        await loadPosts(user, hoodId);
+      } else {
+        await loadPosts(null, null);
       }
-      await loadPosts(user);
       await loadIssues();
       setLoading(false);
     }
@@ -391,6 +403,8 @@ export default function FeedScreen({ onNavigate }) {
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"posts" }, async (payload) => {
         const { data } = await supabase.from("posts").select("*, profiles(display_name,neighborhood)").eq("id", payload.new.id).single();
         if (data) {
+          // Only add to feed if it belongs to this user's neighborhood
+          if (neighborhoodId && data.neighborhood_id && data.neighborhood_id !== neighborhoodId) return;
           setPosts(prev => [data, ...prev]);
           setNewPostIds(ids => [...ids, data.id]);
           setTimeout(() => setNewPostIds(ids => ids.filter(i=>i!==data.id)), 1500);
@@ -404,8 +418,19 @@ export default function FeedScreen({ onNavigate }) {
     return () => { if (channelRef.current) channelRef.current.unsubscribe(); };
   }, []);
 
-  async function loadPosts(user) {
-    const { data } = await supabase.from("posts").select("*, profiles(display_name,neighborhood)").order("created_at", { ascending:false }).limit(50);
+  async function loadPosts(user, hoodId) {
+    let query = supabase
+      .from("posts")
+      .select("*, profiles(display_name,neighborhood)")
+      .order("created_at", { ascending:false })
+      .limit(50);
+
+    // Filter by neighborhood if we have an ID
+    if (hoodId) {
+      query = query.eq("neighborhood_id", hoodId);
+    }
+
+    const { data } = await query;
     if (!data) return;
     if (user && data.length) {
       const { data: upvotes } = await supabase.from("post_upvotes").select("post_id").eq("user_id", user.id).in("post_id", data.map(p=>p.id));
@@ -425,7 +450,16 @@ export default function FeedScreen({ onNavigate }) {
     setPosting(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { showToast("Please sign in"); setPosting(false); return; }
-    const { error } = await supabase.from("posts").insert({ author_id:user.id, body:draft.trim(), tags:[draftTag], upvote_count:0, escalated:false });
+    // Get neighborhood_id from profile
+    const { data: prof } = await supabase.from("profiles").select("neighborhood_id").eq("id", user.id).single();
+    const { error } = await supabase.from("posts").insert({
+      author_id:       user.id,
+      neighborhood_id: prof?.neighborhood_id || null,
+      body:            draft.trim(),
+      tags:            [draftTag],
+      upvote_count:    0,
+      escalated:       false,
+    });
     if (error) { showToast("Failed to post — " + error.message); } else { setDraft(""); showToast("Posted to " + neighborhood); }
     setPosting(false);
   }
