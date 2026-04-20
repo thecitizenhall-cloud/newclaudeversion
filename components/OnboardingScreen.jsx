@@ -137,10 +137,22 @@ function ArrowRight({ color = T.creamDim }) {
 
 // ── Step 1: Account (real Supabase auth) ──────────────────────────────────
 function StepAccount({ onNext }) {
-  const [mode, setMode]       = useState("signup"); // "signup" | "signin"
+  const [mode, setMode]       = useState("signup"); // "signup" | "signin" | "reset"
   const [form, setForm]       = useState({ first:"", last:"", email:"", password:"" });
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
+  const [resetSent, setResetSent] = useState(false);
+
+  async function handleReset() {
+    if (!form.email.includes("@")) { setError("Enter your email address above first."); return; }
+    setLoading(true); setError("");
+    const { error } = await supabase.auth.resetPasswordForEmail(form.email, {
+      redirectTo: "https://townhallcafe.org/reset-password",
+    });
+    if (error) { setError(error.message); }
+    else { setResetSent(true); }
+    setLoading(false);
+  }
 
   const validSignup = form.first && form.last && form.email.includes("@") && form.password.length >= 6;
   const validSignin = form.email.includes("@") && form.password.length >= 1;
@@ -199,15 +211,15 @@ function StepAccount({ onNext }) {
   return (
     <>
       <div className="th-header">
-        <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall</span></div>
+        <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall Café</span></div>
         <div className="th-progress"><div className="th-progress-dot active"/><div className="th-progress-dot"/><div className="th-progress-dot"/></div>
         <h1 className="th-step-title">{mode === "signup" ? <>Create your <em>account</em></> : <>Welcome <em>back</em></>}</h1>
         <p className="th-step-sub">{mode === "signup" ? "Your civic identity — pseudonymous by default, verified by place." : "Sign in to continue to your neighborhood."}</p>
       </div>
       <div className="th-body">
         <div className="tab-row">
-          <button className={`tab-btn${mode==="signup"?" active":""}`} onClick={() => { setMode("signup"); setError(""); }}>New account</button>
-          <button className={`tab-btn${mode==="signin"?" active":""}`} onClick={() => { setMode("signin"); setError(""); }}>Sign in</button>
+          <button className={`tab-btn${mode==="signup"?" active":""}`} onClick={() => { setMode("signup"); setError(""); setResetSent(false); }}>New account</button>
+          <button className={`tab-btn${mode==="signin"?" active":""}`} onClick={() => { setMode("signin"); setError(""); setResetSent(false); }}>Sign in</button>
         </div>
 
         {mode === "signup" && (
@@ -232,17 +244,54 @@ function StepAccount({ onNext }) {
 
         {error && <div className="error-msg">{error}</div>}
 
-        <button className="th-btn th-btn-primary"
-          onClick={handleSubmit}
-          disabled={(mode==="signup" ? !validSignup : !validSignin) || loading}>
-          {loading
-            ? <span style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}><span className="zk-spinner"/> {mode==="signup" ? "Creating account…" : "Signing in…"}</span>
-            : mode==="signup" ? "Continue →" : "Sign in →"}
-        </button>
+        {/* Reset password UI */}
+        {mode === "reset" ? (
+          resetSent ? (
+            <div style={{ background:"#0A2A1E", border:"1px solid #1D9E75", borderRadius:8, padding:"14px 16px", textAlign:"center" }}>
+              <div style={{ fontSize:20, marginBottom:8 }}>📬</div>
+              <div style={{ fontSize:13, color:"#4CAF80", fontWeight:500, marginBottom:4 }}>Reset link sent</div>
+              <div style={{ fontSize:12, color:"#9A9188", lineHeight:1.6 }}>Check your email for a password reset link. It expires in 1 hour.</div>
+              <button style={{ marginTop:12, background:"transparent", border:"none", fontSize:12, color:"#9A9188", cursor:"pointer", textDecoration:"underline" }}
+                onClick={() => { setMode("signin"); setResetSent(false); setError(""); }}>
+                Back to sign in
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize:12, color:"#9A9188", marginBottom:12, lineHeight:1.6 }}>
+                Enter your email above and we&apos;ll send you a link to reset your password.
+              </div>
+              <button className="th-btn th-btn-primary" onClick={handleReset} disabled={!form.email.includes("@") || loading}>
+                {loading ? "Sending…" : "Send reset link →"}
+              </button>
+              <button style={{ marginTop:8, background:"transparent", border:"none", fontSize:12, color:"#9A9188", cursor:"pointer", width:"100%", padding:"6px 0", textDecoration:"underline" }}
+                onClick={() => { setMode("signin"); setError(""); }}>
+                Back to sign in
+              </button>
+            </>
+          )
+        ) : (
+          <>
+            <button className="th-btn th-btn-primary"
+              onClick={handleSubmit}
+              disabled={(mode==="signup" ? !validSignup : !validSignin) || loading}>
+              {loading
+                ? <span style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}><span className="zk-spinner"/> {mode==="signup" ? "Creating account…" : "Signing in…"}</span>
+                : mode==="signup" ? "Continue →" : "Sign in →"}
+            </button>
+
+            {mode === "signin" && (
+              <button style={{ marginTop:6, background:"transparent", border:"none", fontSize:12, color:"#9A9188", cursor:"pointer", width:"100%", padding:"6px 0", textDecoration:"underline", fontFamily:"'DM Sans',sans-serif" }}
+                onClick={() => { setMode("reset"); setError(""); }}>
+                Forgot your password?
+              </button>
+            )}
+          </>
+        )}
 
         <div className="th-terms">
-          By continuing you agree to Townhall&apos;s <a>Terms of Use</a> and <a>Privacy Policy</a>.<br/>
-          Your address is <strong style={{ color:T.cream }}>never stored</strong>.
+          By continuing you agree to Townhall Café&apos;s <a>Terms of Use</a> and <a>Privacy Policy</a>.<br/>
+          Your address is <strong style={{ color:"#F2EDE4" }}>never stored</strong>.
         </div>
       </div>
     </>
@@ -264,7 +313,7 @@ function StepNeighborhood({ onNext }) {
   return (
     <>
       <div className="th-header">
-        <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall</span></div>
+        <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall Café</span></div>
         <div className="th-progress"><div className="th-progress-dot done"/><div className="th-progress-dot active"/><div className="th-progress-dot"/></div>
         <h1 className="th-step-title">Your <em>neighborhood</em></h1>
         <p className="th-step-sub">We detect nearby communities. Your exact location is used once and discarded.</p>
@@ -311,7 +360,7 @@ function StepZK({ hood, onNext }) {
   return (
     <>
       <div className="th-header">
-        <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall</span></div>
+        <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall Café</span></div>
         <div className="th-progress"><div className="th-progress-dot done"/><div className="th-progress-dot done"/><div className="th-progress-dot active"/></div>
         <h1 className="th-step-title"><em>Prove</em> your residency</h1>
         <p className="th-step-sub">Your address stays with you. We generate a cryptographic proof that you&apos;re a {hood.name} resident — without ever seeing your location.</p>
@@ -360,7 +409,7 @@ function StepWelcome({ user, hood }) {
   return (
     <>
       <div className="th-header">
-        <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall</span></div>
+        <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall Café</span></div>
         <h1 className="th-step-title" style={{ marginTop:8 }}>Welcome to <em>{hood.name}</em></h1>
         <p className="th-step-sub">You&apos;re a verified resident. Your voice counts.</p>
       </div>
