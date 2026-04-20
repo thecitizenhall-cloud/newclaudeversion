@@ -42,34 +42,11 @@ const css = `
   @keyframes barGrow  { from{width:0} to{width:var(--w)} }
 
   /* ── Desktop layout (≥768px) ── */
-  .th-app-desktop {
-    display: grid;
-    grid-template-columns: 220px 1fr 340px;
-    grid-template-rows: 52px 1fr;
-    height: 100vh;
-    overflow: hidden;
-  }
+  /* Layout handled by shell in index.jsx */
 
-  /* ── Mobile layout (<768px) ── */
-  .th-app-mobile {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-  }
 
-  /* ── Topbar ── */
-  .th-topbar {
-    background: ${T.surface};
-    border-bottom: 1px solid ${T.border};
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    gap: 10px;
-    height: 52px;
-    flex-shrink: 0;
-  }
-  .th-app-desktop .th-topbar { grid-column: 1/-1; padding: 0 20px; gap: 16px; }
+
+  /* Topbar handled by shell */
 
   .th-logo { display:flex; align-items:center; gap:9px; font-family:'DM Serif Display',serif; font-size:16px; color:${T.cream}; flex-shrink:0; }
   .th-logo-mark { width:26px; height:26px; border:1.5px solid ${T.amber}; border-radius:6px; display:flex; align-items:center; justify-content:center; }
@@ -108,8 +85,8 @@ const css = `
     flex-direction: column;
     background: ${T.bg};
     -webkit-overflow-scrolling: touch;
+    height: 100%;
   }
-  .th-app-mobile .th-feed { flex: 1; }
 
   .th-feed-header { padding:14px 16px 12px; border-bottom:1px solid ${T.border}; position:sticky; top:0; background:${T.bg}; z-index:10; display:flex; align-items:center; gap:10px; }
   .th-app-desktop .th-feed-header { padding:16px 20px 12px; }
@@ -156,50 +133,7 @@ const css = `
   .th-action-btn.escalate-btn { color:${T.blue};margin-left:auto; }
   .th-action-btn.escalate-btn:active { background:${T.blueLo}; }
 
-  /* ── Mobile bottom tab bar ── */
-  .th-bottom-nav {
-    display: none;
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: ${T.surface};
-    border-top: 1px solid ${T.border};
-    z-index: 50;
-    padding-bottom: env(safe-area-inset-bottom, 0);
-  }
-  .th-bottom-nav-inner {
-    display: flex;
-  }
-  .th-bottom-nav-item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    padding: 10px 8px 12px;
-    cursor: pointer;
-    border: none;
-    background: transparent;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 10px;
-    color: ${T.creamDim};
-    transition: color 0.15s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .th-bottom-nav-item.active { color: ${T.amber}; }
-  .th-bottom-nav-dot {
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: transparent;
-    border: 1px solid ${T.borderHi};
-    transition: all 0.15s;
-  }
-  .th-bottom-nav-item.active .th-bottom-nav-dot {
-    background: ${T.amber};
-    border-color: ${T.amber};
-  }
-  @media (max-width: 767px) {
-    .th-bottom-nav { display: block; }
-  }
+  /* Bottom nav handled by shell */
 
   /* ── Mobile civic panel (sheet) ── */
   .th-civic-sheet {
@@ -296,10 +230,7 @@ const css = `
   ::-webkit-scrollbar-track { background:transparent; }
   ::-webkit-scrollbar-thumb { background:${T.border};border-radius:99px; }
 
-  /* Mobile padding for bottom nav */
-  @media (max-width: 767px) {
-    .th-feed { padding-bottom: 70px; }
-  }
+
 `;
 
 const TAGS = {
@@ -420,7 +351,7 @@ function IssuesPanel({ issues, onVote, newIssueIds }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
-export default function FeedScreen() {
+export default function FeedScreen({ onNavigate }) {
   const [posts,        setPosts]        = useState([]);
   const [issues,       setIssues]       = useState([]);
   const [loading,      setLoading]      = useState(true);
@@ -433,19 +364,9 @@ export default function FeedScreen() {
   const [newIssueIds,  setNewIssueIds]  = useState([]);
   const [currentUser,  setCurrentUser]  = useState(null);
   const [neighborhood, setNeighborhood] = useState("Riverdale");
-  const [isMobile,     setIsMobile]     = useState(false);
-  const [mobileTab,    setMobileTab]    = useState("feed"); // feed | issues
-  const [showIssues,   setShowIssues]   = useState(false);
+  const [showIssues,   setShowIssues]   = useState(false); // mobile civic sheet
   const toastTimer  = useRef(null);
   const channelRef  = useRef(null);
-
-  // Detect mobile
-  useEffect(() => {
-    function check() { setIsMobile(window.innerWidth < 768); }
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   function showToast(msg) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -542,138 +463,57 @@ export default function FeedScreen() {
     showToast("Priority vote counted");
   }
 
-  async function handleSignOut() { await supabase.auth.signOut(); }
-
   const filtered = filter==="all" ? posts : filter==="escalated" ? posts.filter(p=>p.escalated) : posts.filter(p=>(p.tags||[]).includes(filter));
   const userInit = initials(currentUser?.user_metadata?.display_name || currentUser?.email || "?");
 
-  // ── Topbar ──────────────────────────────────────────────────────────────
-  const Topbar = (
-    <div className="th-topbar">
-      <div className="th-logo"><div className="th-logo-mark"><LogoMark/></div>{!isMobile&&"Townhall"}</div>
-      {!isMobile&&<div className="th-topbar-hood"><div className="th-topbar-hood-dot"/>{neighborhood}</div>}
-      {isMobile&&<span style={{fontFamily:"'DM Serif Display',serif",fontSize:15,color:T.cream}}>Townhall</span>}
-      <div className="th-topbar-right">
-        {isMobile&&<div className="th-topbar-hood" style={{fontSize:10,padding:"3px 8px"}}><div className="th-topbar-hood-dot"/>{neighborhood}</div>}
-        {!isMobile&&<div className="th-zk-badge"><CheckSm color={T.tealHi}/>ZK verified</div>}
-        <div className="th-avatar" onClick={handleSignOut} title="Sign out">{userInit}</div>
-      </div>
-    </div>
-  );
-
-  // ── Feed content ────────────────────────────────────────────────────────
-  const FeedContent = (
-    <div className="th-feed">
-      <div className="th-feed-header">
-        <h1 className="th-feed-title"><em>{neighborhood}</em> banter</h1>
-        {isMobile&&issues.length>0&&(
-          <button onClick={()=>setShowIssues(true)} style={{ marginLeft:"auto", background:T.blueLo, border:`1px solid ${T.blue}44`, borderRadius:99, padding:"4px 10px", fontSize:11, color:T.blueHi, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", display:"flex", alignItems:"center", gap:4 }}>
-            {issues.length} issues
-          </button>
-        )}
-      </div>
-      <div className="th-filter-row">
-        {[{key:"all",label:"All"},{key:"banter",label:"Banter"},{key:"issue",label:"Issues"},{key:"bulletin",label:"Bulletin"},{key:"escalated",label:"Escalated"}].map(f=>(
-          <div key={f.key} className={`th-filter-pill${filter===f.key?" active":""}`} onClick={()=>setFilter(f.key)}>{f.label}</div>
-        ))}
-      </div>
-      <div className="th-compose">
-        <textarea className="th-compose-input" rows={2}
-          placeholder={`Share something with ${neighborhood}…`}
-          value={draft} onChange={e=>setDraft(e.target.value)}
-          onKeyDown={e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))handlePost();}}
-        />
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div className="th-tag-row">
-            {Object.entries(TAGS).map(([tag,s])=>(
-              <div key={tag} className="th-tag-chip"
-                style={{background:draftTag===tag?s.bg:"transparent",color:draftTag===tag?s.color:T.creamFaint,border:`1px solid ${draftTag===tag?s.border:T.border}`}}
-                onClick={()=>setDraftTag(tag)}>{tag}</div>
-            ))}
-          </div>
-          <button className="th-post-btn" onClick={handlePost} disabled={!draft.trim()||posting}>{posting?"Posting…":"Post"}</button>
-        </div>
-      </div>
-      {loading&&<div className="th-loading"><div className="th-spinner"/>Loading…</div>}
-      {!loading&&filtered.length===0&&<div className="th-empty">No posts yet in {neighborhood}.<br/>Be the first to share something.</div>}
-      {!loading&&filtered.map(post=>(
-        <PostCard key={post.id} post={post} currentUserId={currentUser?.id}
-          onVote={handleVote} onEscalate={handleEscalate} isNew={newPostIds.includes(post.id)}/>
-      ))}
-    </div>
-  );
-
-  // ── MOBILE RENDER ───────────────────────────────────────────────────────
-  if (isMobile) {
-    return (
-      <>
-        <style>{css}</style>
-        <div className="th-app-mobile">
-          {Topbar}
-          {FeedContent}
-        </div>
-
-        {/* Bottom nav */}
-        <div className="th-bottom-nav">
-          <div className="th-bottom-nav-inner">
-            <button className={`th-bottom-nav-item${mobileTab==="feed"?" active":""}`} onClick={()=>setMobileTab("feed")}>
-              <div className="th-bottom-nav-dot"/>Feed
-            </button>
-            <button className={`th-bottom-nav-item${mobileTab==="issues"?" active":""}`}
-              onClick={()=>{setMobileTab("issues");setShowIssues(true);}}>
-              <div className="th-bottom-nav-dot" style={{background:mobileTab==="issues"?T.blue:"transparent",borderColor:mobileTab==="issues"?T.blue:T.borderHi}}/>
-              Civic {issues.length>0&&<span style={{marginLeft:3,background:T.blueLo,border:`1px solid ${T.blue}44`,borderRadius:99,padding:"0 5px",fontSize:9,color:T.blueHi}}>{issues.length}</span>}
-            </button>
-            <button className={`th-bottom-nav-item${mobileTab==="expert"?" active":""}`} onClick={()=>setMobileTab("expert")}>
-              <div className="th-bottom-nav-dot" style={{background:mobileTab==="expert"?T.purple:"transparent",borderColor:mobileTab==="expert"?T.purple:T.borderHi}}/>
-              Expert
-            </button>
-          </div>
-        </div>
-
-        {/* Civic issues bottom sheet */}
-        {showIssues&&(
-          <div className="th-civic-sheet">
-            <div className="th-civic-sheet-backdrop" onClick={()=>setShowIssues(false)}/>
-            <div className="th-civic-sheet-panel">
-              <div className="th-civic-sheet-handle"/>
-              <div className="th-civic-sheet-header">
-                <div>
-                  <div className="th-civic-sheet-title">Civic issues</div>
-                  <div className="th-civic-sheet-sub">{issues.length} open · ZK-gated voting</div>
-                </div>
-                <button className="th-civic-sheet-close" onClick={()=>setShowIssues(false)}>×</button>
-              </div>
-              <div className="th-civic-sheet-body">
-                <IssuesPanel issues={issues} onVote={handleIssueVote} newIssueIds={newIssueIds}/>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {toast&&<div className="th-toast"><div className="th-toast-dot"/>{toast}</div>}
-      </>
-    );
-  }
-
-  // ── DESKTOP RENDER ──────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────
   return (
     <>
       <style>{css}</style>
-      <div className="th-app-desktop">
-        {Topbar}
-        <div className="th-sidebar">
-          <div className="th-sidebar-section">Spaces</div>
-          <div className="th-nav-item active"><div className="th-nav-dot" style={{background:T.amber}}/>Banter feed</div>
-          <div className="th-nav-item" onClick={()=>{}}><div className="th-nav-dot" style={{background:T.blue}}/>Civic issues<span className="th-nav-badge">{issues.length}</span></div>
-          <div className="th-nav-item"><div className="th-nav-dot" style={{background:T.purple}}/>Expert Q&amp;A</div>
-          <div className="th-sidebar-section">Neighborhoods</div>
-          <div className="th-nav-item active"><div className="th-nav-dot" style={{background:T.amber}}/>{neighborhood}</div>
-          <div className="th-sidebar-section">Account</div>
-          <div className="th-nav-item" onClick={handleSignOut} style={{color:T.red}}><div className="th-nav-dot" style={{background:T.red}}/>Sign out</div>
+      {/* Two-column: feed + civic tracker */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 340px", height:"100%", overflow:"hidden" }}>
+
+        {/* Feed column */}
+        <div className="th-feed">
+          <div className="th-feed-header">
+            <h1 className="th-feed-title"><em>{neighborhood}</em> banter</h1>
+            <button onClick={()=>setShowIssues(true)}
+              style={{ marginLeft:"auto", background:T.blueLo, border:`1px solid ${T.blue}44`, borderRadius:99, padding:"4px 10px", fontSize:11, color:T.blueHi, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", display:"flex", alignItems:"center", gap:4 }}>
+              {issues.length} issues
+            </button>
+          </div>
+          <div className="th-filter-row">
+            {[{key:"all",label:"All"},{key:"banter",label:"Banter"},{key:"issue",label:"Issues"},{key:"bulletin",label:"Bulletin"},{key:"escalated",label:"Escalated"}].map(f=>(
+              <div key={f.key} className={`th-filter-pill${filter===f.key?" active":""}`} onClick={()=>setFilter(f.key)}>{f.label}</div>
+            ))}
+          </div>
+          <div className="th-compose">
+            <textarea className="th-compose-input" rows={2}
+              placeholder={`Share something with ${neighborhood}…`}
+              value={draft} onChange={e=>setDraft(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))handlePost();}}
+            />
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div className="th-tag-row">
+                {Object.entries(TAGS).map(([tag,s])=>(
+                  <div key={tag} className="th-tag-chip"
+                    style={{background:draftTag===tag?s.bg:"transparent",color:draftTag===tag?s.color:T.creamFaint,border:`1px solid ${draftTag===tag?s.border:T.border}`}}
+                    onClick={()=>setDraftTag(tag)}>{tag}</div>
+                ))}
+              </div>
+              <button className="th-post-btn" onClick={handlePost} disabled={!draft.trim()||posting}>{posting?"Posting…":"Post"}</button>
+            </div>
+          </div>
+          {loading&&<div className="th-loading"><div className="th-spinner"/>Loading…</div>}
+          {!loading&&filtered.length===0&&<div className="th-empty">No posts yet in {neighborhood}.<br/>Be the first to share something.</div>}
+          {!loading&&filtered.map(post=>(
+            <PostCard key={post.id} post={post} currentUserId={currentUser?.id}
+              onVote={handleVote} onEscalate={handleEscalate} isNew={newPostIds.includes(post.id)}/>
+          ))}
         </div>
-        {FeedContent}
-        <div className="th-tracker">
+
+        {/* Right: civic tracker — hidden on mobile via CSS */}
+        <div className="th-tracker" style={{ display:"flex", flexDirection:"column", overflow:"hidden" }}>
           <div className="th-tracker-header">
             <div className="th-tracker-title">Civic issues</div>
             <div className="th-tracker-sub">{issues.length} open · ZK-gated voting</div>
@@ -683,6 +523,27 @@ export default function FeedScreen() {
           </div>
         </div>
       </div>
+
+      {/* Mobile civic sheet — slides up when issues button tapped */}
+      {showIssues&&(
+        <div className="th-civic-sheet">
+          <div className="th-civic-sheet-backdrop" onClick={()=>setShowIssues(false)}/>
+          <div className="th-civic-sheet-panel">
+            <div className="th-civic-sheet-handle"/>
+            <div className="th-civic-sheet-header">
+              <div>
+                <div className="th-civic-sheet-title">Civic issues</div>
+                <div className="th-civic-sheet-sub">{issues.length} open · ZK-gated voting</div>
+              </div>
+              <button className="th-civic-sheet-close" onClick={()=>setShowIssues(false)}>×</button>
+            </div>
+            <div className="th-civic-sheet-body">
+              <IssuesPanel issues={issues} onVote={handleIssueVote} newIssueIds={newIssueIds}/>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast&&<div className="th-toast"><div className="th-toast-dot"/>{toast}</div>}
     </>
   );
