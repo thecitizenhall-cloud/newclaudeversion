@@ -48,12 +48,10 @@ const css = `
   @keyframes glow    { 0%,100%{box-shadow:0 0 0 0 ${T.purpleMid}44} 50%{box-shadow:0 0 0 6px ${T.purpleMid}00} }
 
   /* ── Layout ── */
-  .app { display:grid; grid-template-columns:220px 1fr 300px; grid-template-rows:52px 1fr; height:100vh; overflow:hidden; }
-  @media(max-width:767px) { .app { grid-template-columns:1fr; grid-template-rows:52px 1fr; } }
+  /* Layout handled by shell */
 
   /* ── Topbar ── */
-  .topbar { grid-column:1/-1; background:${T.surface}; border-bottom:1px solid ${T.border}; display:flex; align-items:center; padding:0 20px; gap:14px; height:52px; }
-  @media(max-width:767px) { .topbar { padding:0 16px; gap:10px; } }
+  /* Topbar handled by shell */
   .logo { display:flex;align-items:center;gap:9px; font-family:'DM Serif Display',serif; font-size:16px;color:${T.cream};flex-shrink:0; }
   .logo-mark { width:26px;height:26px;border:1.5px solid ${T.amber}; border-radius:6px;display:flex;align-items:center;justify-content:center; }
   .topbar-pill { display:flex;align-items:center;gap:6px; padding:4px 12px;border-radius:99px;font-size:12px; }
@@ -67,8 +65,7 @@ const css = `
   .apply-btn:hover { background:${T.purpleLo}; }
 
   /* ── Sidebar ── */
-  .sidebar { background:${T.surface};border-right:1px solid ${T.border};padding:16px 0;overflow-y:auto; }
-  @media(max-width:767px) { .sidebar { display:none; } }
+  /* Sidebar handled by shell */
   .sidebar-section { padding:4px 16px 2px;font-size:10px;font-weight:500;color:${T.creamFaint};text-transform:uppercase;letter-spacing:0.1em;margin-top:12px; }
   .nav-item { display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;font-size:13px;color:${T.creamDim};transition:all 0.15s;border-left:2px solid transparent; }
   .nav-item:hover{color:${T.cream};background:${T.surfaceHi};}
@@ -77,7 +74,7 @@ const css = `
   .nav-badge{margin-left:auto;background:${T.purpleLo};border:1px solid ${T.purpleMid};border-radius:99px;padding:1px 7px;font-size:10px;color:${T.purpleHi};}
 
   /* ── Main panel ── */
-  .main { overflow-y:auto;display:flex;flex-direction:column; }
+  .main { overflow-y:auto;display:flex;flex-direction:column;height:100%; }
   .panel-header { padding:16px 22px 14px;border-bottom:1px solid ${T.border};position:sticky;top:0;background:${T.bg};z-index:10; }
   @media(max-width:767px) { .panel-header { padding:14px 16px 12px; } }
   .panel-title { font-family:'DM Serif Display',serif;font-size:20px;color:${T.cream};margin-bottom:3px; }
@@ -405,7 +402,7 @@ function TrustPanel({profile}){
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────
-export default function ExpertScreen(){
+export default function ExpertScreen({ onNavigate }){
   const [tab,       setTab]       = useState("questions");
   const [questions, setQuestions] = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -538,7 +535,6 @@ export default function ExpertScreen(){
     }
   }
 
-  async function handleSignOut(){await supabase.auth.signOut();}
 
   const displayed = tab==="unanswered"
     ? questions.filter(q=>!(q.expert_answers||[]).length)
@@ -549,46 +545,27 @@ export default function ExpertScreen(){
   return(
     <>
       <style>{css}</style>
-      <div className="app">
+      {/* Two-column: Q&A + trust panel */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 260px", height:"100%", overflow:"hidden" }}>
 
-        {/* Topbar */}
-        <div className="topbar">
-          <div className="logo"><div className="logo-mark"><LogoMark/></div>Townhall</div>
-          <div className="topbar-pill pill-amber"><div className="pill-dot" style={{background:T.amber}}/>{neighborhood}</div>
-          <div className="topbar-pill pill-purple"><div className="pill-dot" style={{background:T.purple}}/>Expert Q&amp;A</div>
-          <div className="topbar-right">
-            {isExpert
-              ? <div className="expert-mode-badge"><CheckIcon color={T.purpleHi}/> Expert mode</div>
-              : <button className="apply-btn" onClick={()=>{setShowApply(true);setTab("roster");}}>Apply as expert</button>
-            }
-            <div className="avatar" onClick={handleSignOut} title="Sign out">{userInit}</div>
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="sidebar">
-          <div className="sidebar-section">Expert forum</div>
-          <div className={`nav-item${tab==="questions"?" active":""}`} onClick={()=>setTab("questions")}>
-            <div className="nav-dot" style={{background:tab==="questions"?T.purple:T.creamFaint}}/>Questions
-            <span className="nav-badge">{questions.filter(q=>!(q.expert_answers||[]).length).length}</span>
-          </div>
-          <div className={`nav-item${tab==="roster"?" active":""}`} onClick={()=>setTab("roster")}>
-            <div className="nav-dot" style={{background:tab==="roster"?T.purple:T.creamFaint}}/>Expert roster
-          </div>
-          <div className="sidebar-section">Navigation</div>
-          {["Banter feed","Civic issues","Bulletin board"].map(n=>(
-            <div key={n} className="nav-item"><div className="nav-dot" style={{background:T.creamFaint}}/>{n}</div>
-          ))}
-        </div>
-
-        {/* Main */}
+        {/* Main Q&A column */}
         <div className="main">
           <div className="panel-header">
-            <div className="panel-title">{tab==="roster"?<><em>Expert</em> roster</>:<><em>Expert</em> Q&amp;A</>}</div>
-            <div className="panel-sub">
-              {tab==="roster"
-                ? "Apply to join as a verified expert"
-                : `${questions.filter(q=>!(q.expert_answers||[]).length).length} awaiting answer · credentialed experts only`}
+            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <div>
+                <div className="panel-title">{tab==="roster"?<><em>Expert</em> roster</>:<><em>Expert</em> Q&amp;A</>}</div>
+                <div className="panel-sub">
+                  {tab==="roster"
+                    ? "Apply to join as a verified expert"
+                    : `${questions.filter(q=>!(q.expert_answers||[]).length).length} awaiting answer · credentialed experts only`}
+                </div>
+              </div>
+              <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8 }}>
+                {isExpert
+                  ? <div className="expert-mode-badge"><CheckIcon color={T.purpleHi}/> Expert mode</div>
+                  : <button className="apply-btn" onClick={()=>{setShowApply(true);setTab("roster");}}>Apply as expert</button>
+                }
+              </div>
             </div>
           </div>
 
@@ -600,7 +577,6 @@ export default function ExpertScreen(){
             <div className={`tab-item${tab==="roster"?" active":""}`} onClick={()=>setTab("roster")}>Expert roster</div>
           </div>
 
-          {/* Ask box */}
           {(tab==="questions"||tab==="unanswered")&&(
             <div className="ask-box">
               <textarea className="ask-area" rows={2} placeholder="Ask a question for the expert panel…" value={askDraft}
@@ -619,7 +595,6 @@ export default function ExpertScreen(){
             </div>
           )}
 
-          {/* Questions */}
           {(tab==="questions"||tab==="unanswered")&&(
             loading
               ? <div className="th-loading"><div className="th-spinner"/>Loading questions…</div>
@@ -636,7 +611,6 @@ export default function ExpertScreen(){
                   ))
           )}
 
-          {/* Roster */}
           {tab==="roster"&&(
             <>
               {showApply&&(
@@ -689,7 +663,7 @@ export default function ExpertScreen(){
           )}
         </div>
 
-        {/* Trust panel */}
+        {/* Right: trust panel — hidden on mobile */}
         <TrustPanel profile={profile}/>
 
       </div>
