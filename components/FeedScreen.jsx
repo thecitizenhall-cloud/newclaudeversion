@@ -389,6 +389,7 @@ export default function FeedScreen({ onNavigate }) {
           .eq("id", user.id)
           .single();
         const hoodId = prof?.neighborhood_id || null;
+        console.log("profile neighborhood_id:", hoodId);
         setNeighborhoodId(hoodId);
         await loadPosts(user, hoodId);
       } else {
@@ -419,6 +420,7 @@ export default function FeedScreen({ onNavigate }) {
   }, []);
 
   async function loadPosts(user, hoodId) {
+    console.log("loadPosts called — hoodId:", hoodId, "user:", user?.id);
     let query = supabase
       .from("posts")
       .select("*, profiles(display_name,neighborhood)")
@@ -430,7 +432,8 @@ export default function FeedScreen({ onNavigate }) {
       query = query.eq("neighborhood_id", hoodId);
     }
 
-    const { data } = await query;
+    const { data, error } = await query;
+    console.log("loadPosts result — count:", data?.length, "error:", error?.message);
     if (!data) return;
     if (user && data.length) {
       const { data: upvotes } = await supabase.from("post_upvotes").select("post_id").eq("user_id", user.id).in("post_id", data.map(p=>p.id));
