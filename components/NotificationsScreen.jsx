@@ -50,20 +50,10 @@ const css = `
   @keyframes notifPing { 0%{transform:scale(1);opacity:1} 100%{transform:scale(2.2);opacity:0} }
   @keyframes barGrow   { from{width:0} to{width:var(--w)} }
 
-  .app {
-    display: grid;
-    grid-template-columns: 220px 1fr 320px;
-    grid-template-rows: 52px 1fr;
-    height: 100vh;
-    overflow: hidden;
-  }
-  @media(max-width:767px) {
-    .app { grid-template-columns:1fr; grid-template-rows:52px 1fr; }
-    .sidebar, .settings-panel { display:none; }
-  }
+  /* Layout handled by shell */
+  @media(max-width:767px){ .settings-panel { display:none; } }
 
-  /* ── Topbar ── */
-  .topbar { grid-column:1/-1; background:${T.surface}; border-bottom:1px solid ${T.border}; display:flex; align-items:center; padding:0 20px; gap:12px; height:52px; }
+  /* Topbar handled by shell */
   .logo { display:flex;align-items:center;gap:9px; font-family:'DM Serif Display',serif; font-size:16px;color:${T.cream};flex-shrink:0; }
   .logo-mark { width:26px;height:26px;border:1.5px solid ${T.amber}; border-radius:6px;display:flex;align-items:center;justify-content:center; }
   .topbar-pill { display:flex;align-items:center;gap:6px; padding:4px 12px;border-radius:99px;font-size:12px; }
@@ -77,8 +67,7 @@ const css = `
   .notif-ping { position:absolute;top:-4px;right:-4px; width:16px;height:16px;border-radius:50%; background:${T.amber};opacity:0.4; animation:notifPing 1.4s ease infinite; }
   .avatar { width:30px;height:30px;border-radius:8px; background:${T.amberLo};border:1px solid ${T.amberMid}; display:flex;align-items:center;justify-content:center; font-family:'DM Serif Display',serif;font-size:12px;color:${T.amberHi}; cursor:pointer; }
 
-  /* ── Sidebar ── */
-  .sidebar { background:${T.surface};border-right:1px solid ${T.border};padding:16px 0;overflow-y:auto; }
+  /* Sidebar handled by shell */
   .sidebar-section { padding:4px 16px 2px;font-size:10px;font-weight:500;color:${T.creamFaint};text-transform:uppercase;letter-spacing:0.1em;margin-top:12px; }
   .nav-item { display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;font-size:13px;color:${T.creamDim};transition:all 0.15s;border-left:2px solid transparent; }
   .nav-item:hover{color:${T.cream};background:${T.surfaceHi};}
@@ -95,7 +84,7 @@ const css = `
   .tab-item.active{color:${T.tealHi};border-bottom-color:${T.teal};}
 
   /* ── Main ── */
-  .main { overflow-y:auto;display:flex;flex-direction:column;background:${T.bg}; }
+  .main { overflow-y:auto;display:flex;flex-direction:column;background:${T.bg};height:100%; }
 
   .notif-header { padding:16px 22px 14px;border-bottom:1px solid ${T.border}; position:sticky;top:0;background:${T.bg};z-index:10; display:flex;align-items:flex-start;justify-content:space-between;gap:12px; }
   .notif-title { font-family:'DM Serif Display',serif;font-size:20px;color:${T.cream}; }
@@ -312,7 +301,7 @@ function CityIssueCard({ issue, idx }) {
   );
 }
 
-export default function NotificationsScreen() {
+export default function NotificationsScreen({ onNavigate }) {
   const [tab,          setTab]          = useState("notifications");
   const [notifs,       setNotifs]       = useState([]);
   const [loading,      setLoading]      = useState(true);
@@ -421,7 +410,6 @@ export default function NotificationsScreen() {
     showToast(`${NOTIF_PREFS.find(p=>p.id===id)?.label} ${prefs[id]?"off":"on"}`, T.tealHi);
   }
 
-  async function handleSignOut() { await supabase.auth.signOut(); }
 
   const unreadCount = notifs.filter(n => !n.read).length;
   const groups = ["today","yesterday","earlier"];
@@ -444,264 +432,9 @@ export default function NotificationsScreen() {
   return (
     <>
       <style>{css}</style>
-      <div className="app">
-
-        {/* Topbar */}
-        <div className="topbar">
-          <div className="logo"><div className="logo-mark"><LogoMark/></div>Townhall</div>
-          <div className="topbar-pill pill-amber"><div className="pill-dot" style={{background:T.amber}}/>{neighborhood}</div>
-          <div className="topbar-pill pill-teal" style={{cursor:"pointer"}} onClick={()=>setTab("rollup")}>
-            <div className="pill-dot" style={{background:T.teal}}/>City-wide
-          </div>
-          <div className="topbar-right">
-            <div className="notif-btn" onClick={()=>setTab("notifications")}>
-              <BellIcon color={unreadCount>0?T.amberHi:T.creamDim}/>
-              {unreadCount>0&&<><div className="notif-count">{unreadCount}</div><div className="notif-ping"/></>}
-            </div>
-            <div className="topbar-pill pill-teal"><CheckIcon color={T.tealHi}/>ZK verified</div>
-            <div className="avatar" onClick={handleSignOut} title="Sign out">{userInit}</div>
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="sidebar">
-          <div className="sidebar-section">Sprint 4</div>
-          <div className={`nav-item${tab==="notifications"?" active":""}`} onClick={()=>setTab("notifications")}>
-            <div className="nav-dot" style={{background:tab==="notifications"?T.teal:T.creamFaint}}/>
-            Notifications
-            {unreadCount>0&&<span className="nav-badge badge-amber">{unreadCount}</span>}
-          </div>
-          <div className={`nav-item${tab==="rollup"?" active":""}`} onClick={()=>setTab("rollup")}>
-            <div className="nav-dot" style={{background:tab==="rollup"?T.teal:T.creamFaint}}/>
-            City-wide rollup
-            <span className="nav-badge badge-teal">{CITY_ISSUES.length}</span>
-          </div>
-          <div className={`nav-item${tab==="officials"?" active":""}`} onClick={()=>setTab("officials")}>
-            <div className="nav-dot" style={{background:tab==="officials"?T.teal:T.creamFaint}}/>
-            Official responses
-            <span className="nav-badge badge-teal">{CITY_ISSUES.filter(i=>i.status==="responded").length}</span>
-          </div>
-          <div className="sidebar-section">Navigation</div>
-          {["Banter feed","Expert Q&A"].map(n=>(
-            <div key={n} className="nav-item"><div className="nav-dot" style={{background:T.creamFaint}}/>{n}</div>
-          ))}
-          <div className="sidebar-section">Account</div>
-          <div className="nav-item" onClick={handleSignOut} style={{color:T.red}}>
-            <div className="nav-dot" style={{background:T.red}}/>Sign out
-          </div>
-        </div>
-
-        {/* Main */}
-        <div className="main">
-
-          {/* ── Notifications tab ── */}
-          {tab==="notifications"&&(
-            <>
-              <div className="notif-header">
-                <div>
-                  <div className="notif-title">Your <em>notifications</em></div>
-                  <div className="notif-sub">{unreadCount>0?`${unreadCount} unread`:"All caught up"} · {neighborhood} + city-wide</div>
-                </div>
-                {unreadCount>0&&<button className="mark-all-btn" onClick={markAll}>Mark all read</button>}
-              </div>
-              <div className="digest-bar">
-                <span className="digest-label">Digest</span>
-                <div className="digest-opts">
-                  {["realtime","daily","weekly"].map(d=>(
-                    <div key={d} className={`digest-chip${digest===d?" sel":""}`}
-                      onClick={()=>{setDigest(d);showToast(`Digest set to ${d}`,T.tealHi);}}>
-                      {d.charAt(0).toUpperCase()+d.slice(1)}
-                    </div>
-                  ))}
-                </div>
-                <div className="push-toggle">
-                  Push
-                  <div className={`toggle-track${push?" on":""}`} onClick={()=>setPush(p=>!p)}>
-                    <div className="toggle-thumb"/>
-                  </div>
-                </div>
-              </div>
-
-              {loading&&<div className="th-loading"><div className="th-spinner"/>Loading notifications…</div>}
-
-              {!loading&&notifs.length===0&&(
-                <div className="th-empty">No notifications yet.<br/>Activity in your neighborhood will appear here.</div>
-              )}
-
-              {!loading&&groups.map(group=>{
-                const items = notifs.filter(n=>getGroup(n.created_at)===group);
-                if (!items.length) return null;
-                return(
-                  <div key={group}>
-                    <div className="notif-group-label">{group.charAt(0).toUpperCase()+group.slice(1)}</div>
-                    {items.map((n,i)=><NotifItem key={n.id} n={n} onRead={markRead} idx={i}/>)}
-                  </div>
-                );
-              })}
-            </>
-          )}
-
-          {/* ── City rollup + officials tabs ── */}
-          {(tab==="rollup"||tab==="officials")&&(
-            <>
-              <div className="rollup-header">
-                <div className="rollup-title">{tab==="officials"?<><em>Official</em> responses</>:<><em>City-wide</em> rollup</>}</div>
-                <div className="rollup-sub">
-                  {tab==="officials"
-                    ?`${CITY_ISSUES.filter(i=>i.status==="responded").length} responses · ${CITY_ISSUES.filter(i=>i.status==="awaiting").length} awaiting`
-                    :`${HOODS.length} neighborhoods · ${CITY_ISSUES.length} active issues`}
-                </div>
-              </div>
-              <div className="tab-bar">
-                <div className={`tab-item${tab==="rollup"?" active":""}`} onClick={()=>setTab("rollup")}>All issues</div>
-                <div className={`tab-item${tab==="officials"?" active":""}`} onClick={()=>setTab("officials")}>
-                  Official responses ({CITY_ISSUES.filter(i=>i.status==="responded").length})
-                </div>
-              </div>
-              {tab==="rollup"&&(
-                <div className="city-grid">
-                  {HOODS.map((h,i)=>(
-                    <div key={h.id} className={`hood-tile${activeHood===h.name?" active-hood":""}`}
-                      style={{ animationDelay:`${i*0.04}s` }}
-                      onClick={()=>setActiveHood(activeHood===h.name?null:h.name)}>
-                      <div className="hood-tile-heat" style={{background:h.heat}}/>
-                      <div className="hood-tile-name">{h.name}</div>
-                      <div className="hood-tile-issues">{h.issues} issues</div>
-                      <div className="hood-tile-bar"><div className="hood-tile-fill" style={{"--w":`${h.pct}%`,width:`${h.pct}%`,background:h.heat}}/></div>
-                      <div className="hood-tile-residents">{h.residents.toLocaleString()} residents</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="city-issue-list">
-                <div className="section-head">
-                  {activeHood
-                    ?<><span>{activeHood} issues</span><div className="section-head-line"/><span style={{color:T.creamFaint,cursor:"pointer",fontSize:11}} onClick={()=>setActiveHood(null)}>clear ×</span></>
-                    :<><span>All city-wide issues</span><div className="section-head-line"/></>}
-                </div>
-                {(tab==="officials"?CITY_ISSUES.filter(i=>i.status==="responded"):filteredIssues).map((issue,i)=>(
-                  <CityIssueCard key={issue.id} issue={issue} idx={i}/>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* ── Settings + Official onboarding panel ── */}
-        <div className="settings-panel">
-          <div className="settings-header">
-            <div className="settings-title">Notifications</div>
-            <div className="settings-sub">Your preferences</div>
-          </div>
-          <div className="settings-body">
-
-            {/* Live stats */}
-            <div>
-              <div className="settings-section-label">City activity · live</div>
-              <div className="live-grid">
-                {[
-                  { num:liveStats.voices,    label:"Voices today",        delta:"+12" },
-                  { num:liveStats.issues,    label:"Active issues",       delta:"+2"  },
-                  { num:liveStats.responses, label:"Official responses",  delta:"+1"  },
-                  { num:liveStats.experts,   label:"Experts online",      delta:""    },
-                ].map((s,i)=>(
-                  <div key={i} className="live-stat">
-                    <div className="live-num">{s.num.toLocaleString()}</div>
-                    <div style={{flex:1}}>
-                      <div className="live-label">{s.label}</div>
-                      {s.delta&&<div style={{fontSize:11,color:T.tealHi,display:"flex",alignItems:"center",gap:3}}><UpIcon color={T.tealHi}/>{s.delta}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Push toggle */}
-            <div>
-              <div className="settings-section-label">Push notifications</div>
-              <div style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:T.bg,border:`1px solid ${T.border}`,borderRadius:8 }}>
-                <BellIcon color={T.creamDim}/>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,color:T.cream}}>Mobile push</div>
-                  <div style={{fontSize:11,color:T.creamDim}}>Receive alerts on your device</div>
-                </div>
-                <div className={`toggle-track${push?" on":""}`} onClick={()=>setPush(p=>!p)}>
-                  <div className="toggle-thumb"/>
-                </div>
-              </div>
-            </div>
-
-            {/* Alert types */}
-            <div>
-              <div className="settings-section-label">Alert types</div>
-              {NOTIF_PREFS.map(p=>(
-                <div key={p.id} className="pref-row" onClick={()=>togglePref(p.id)}>
-                  <div className="pref-icon" style={{background:p.iconBg,color:p.iconColor}}>{p.icon}</div>
-                  <div className="pref-info">
-                    <div className="pref-label">{p.label}</div>
-                    <div className="pref-desc">{p.desc}</div>
-                  </div>
-                  <div className={`toggle-track${prefs[p.id]?" on":""}`}>
-                    <div className="toggle-thumb"/>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* ── Official onboarding ── */}
-            <div>
-              <div className="settings-section-label">Phase 3 · official access</div>
-              <div className="official-onboard-card">
-                <div className="official-onboard-header">
-                  <CheckIcon color={T.tealHi}/>
-                  Are you a government official?
-                </div>
-                <div className="official-onboard-body">
-
-                  {/* Already applied */}
-                  {officialAppStatus === "pending" && (
-                    <div style={{ fontSize:12,color:T.amberHi,background:T.amberLo,border:`1px solid ${T.amberMid}`,borderRadius:8,padding:"10px 12px",marginBottom:12,lineHeight:1.6 }}>
-                      Your application is under review. You&apos;ll be notified once approved.
-                    </div>
-                  )}
-                  {officialAppStatus === "approved" && (
-                    <div style={{ fontSize:12,color:T.tealHi,background:T.tealLo,border:`1px solid ${T.teal}44`,borderRadius:8,padding:"10px 12px",marginBottom:12,lineHeight:1.6,display:"flex",alignItems:"center",gap:8 }}>
-                      <CheckIcon color={T.tealHi}/> Your official account is verified and active.
-                    </div>
-                  )}
-
-                  {officialAppStatus !== "approved" && (
-                    <>
-                      <div className="official-step">
-                        <div className="official-step-num">1</div>
-                        <div className="official-step-text">Submit your name, title, and jurisdiction — we verify against <strong>US government records</strong>.</div>
-                      </div>
-                      <div className="official-step">
-                        <div className="official-step-num">2</div>
-                        <div className="official-step-text">Elected officials are <strong>auto-verified</strong> via Google Civic API. Appointed staff go through brief manual review.</div>
-                      </div>
-                      <div className="official-step">
-                        <div className="official-step-num">3</div>
-                        <div className="official-step-text">Once approved, your responses to civic issues carry a <strong>verified official badge</strong> visible to all residents.</div>
-                      </div>
-                      <div className="official-step">
-                        <div className="official-step-num">4</div>
-                        <div className="official-step-text">Your silence on issues is also visible — Townhall shows residents <strong>which officials have responded</strong> and which haven&apos;t.</div>
-                      </div>
-                      <button
-                        className="invite-official-btn"
-                        onClick={() => setShowOfficial(true)}>
-                        {officialAppStatus === "pending" ? "View my application →" : "Apply as a verified official →"}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
+      {/* Two-column: content + settings panel */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 280px", height:"100%", overflow:"hidden" }}>
+      </div>{/* end two-column grid */}
 
       {/* ── ApplyOfficial bottom sheet ── */}
       {showOfficial && (
