@@ -21,11 +21,17 @@ const T = {
   blue:"#378ADD", blueLo:"#0D1E35", blueHi:"#85B7EB",
 };
 
+// Icons as functions to avoid hydration mismatch
+function IconFeed()   { return <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="14" height="3" rx="1.5" fill="currentColor" opacity="0.9"/><rect x="2" y="7.5" width="10" height="3" rx="1.5" fill="currentColor" opacity="0.6"/><rect x="2" y="13" width="7" height="3" rx="1.5" fill="currentColor" opacity="0.35"/></svg>; }
+function IconCivic()  { return <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2L2 7v9h5v-4h4v4h5V7L9 2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>; }
+function IconExpert() { return <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.4"/><path d="M9 12c-3.5 0-6 1.5-6 3h12c0-1.5-2.5-3-6-3z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>; }
+function IconAlerts() { return <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2.5a5.5 5.5 0 00-5.5 5.5v2.5L2 13h14l-1.5-2.5V8A5.5 5.5 0 009 2.5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M7 13a2 2 0 004 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>; }
+
 const TABS = [
-  { key:"feed",   label:"Feed",    sub:"Banter & posts",   color:T.amber,  colorLo:T.amberLo,  icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="14" height="3" rx="1.5" fill="currentColor" opacity="0.9"/><rect x="2" y="7.5" width="10" height="3" rx="1.5" fill="currentColor" opacity="0.6"/><rect x="2" y="13" width="7" height="3" rx="1.5" fill="currentColor" opacity="0.35"/></svg> },
-  { key:"civic",  label:"Civic",   sub:"Issues & votes",   color:T.blue,   colorLo:T.blueLo,   icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2L2 7v9h5v-4h4v4h5V7L9 2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg> },
-  { key:"expert", label:"Expert",  sub:"Q&A panel",        color:T.purple, colorLo:T.purpleLo, icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.4"/><path d="M9 12c-3.5 0-6 1.5-6 3h12c0-1.5-2.5-3-6-3z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg> },
-  { key:"alerts", label:"Alerts",  sub:"Notifications",    color:T.teal,   colorLo:T.tealLo,   icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2.5a5.5 5.5 0 00-5.5 5.5v2.5L2 13h14l-1.5-2.5V8A5.5 5.5 0 009 2.5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M7 13a2 2 0 004 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
+  { key:"feed",   label:"Feed",   sub:"Banter & posts",  color:T.amber,  colorLo:T.amberLo,  Icon:IconFeed   },
+  { key:"civic",  label:"Civic",  sub:"Issues & votes",  color:T.blue,   colorLo:T.blueLo,   Icon:IconCivic  },
+  { key:"expert", label:"Expert", sub:"Q&A panel",       color:T.purple, colorLo:T.purpleLo, Icon:IconExpert },
+  { key:"alerts", label:"Alerts", sub:"Notifications",   color:T.teal,   colorLo:T.tealLo,   Icon:IconAlerts },
 ];
 
 const css = `
@@ -320,7 +326,7 @@ export default function Home() {
                   className={`sidebar-item${active?" active":""}`}
                   style={{ "--tab-color":tab.color, "--tab-color-lo":tab.colorLo }}
                   onClick={() => navigate(tab.key)}>
-                  <div className="sidebar-item-icon">{tab.icon}</div>
+                  <div className="sidebar-item-icon"><tab.Icon /></div>
                   <div style={{ flex:1 }}>
                     <div className="sidebar-item-label">{tab.label}</div>
                     <div className="sidebar-item-sub">{tab.sub}</div>
@@ -362,7 +368,7 @@ export default function Home() {
                 style={{ "--tab-color":tab.color }}
                 onClick={() => navigate(tab.key)}>
                 <div style={{ position:"relative", width:22, height:22, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  <div style={{ color:active?tab.color:T.creamDim, display:"flex", alignItems:"center", justifyContent:"center" }}>{tab.icon}</div>
+                  <div style={{ color:active?tab.color:T.creamDim, display:"flex", alignItems:"center", justifyContent:"center" }}><tab.Icon /></div>
                   {tab.key==="alerts"&&unread>0&&<div className="bottom-tab-dot"/>}
                 </div>
                 {tab.label}
