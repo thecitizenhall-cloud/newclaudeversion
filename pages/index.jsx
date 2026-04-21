@@ -148,9 +148,11 @@ function BottomTabs({ screen, navigate }) {
 }
 
 function initials(name) {
-  if (!name) return "?";
-  const p = name.trim().split(" ");
-  return p.length >= 2 ? `${p[0][0]}${p[p.length-1][0]}`.toUpperCase() : name.slice(0,2).toUpperCase();
+  if (!name || name === "undefined" || name === "null") return "?";
+  const trimmed = name.trim();
+  if (!trimmed) return "?";
+  const p = trimmed.split(" ").filter(Boolean);
+  return p.length >= 2 ? `${p[0][0]}${p[p.length-1][0]}`.toUpperCase() : trimmed.slice(0,2).toUpperCase();
 }
 
 export default function Home() {
@@ -231,7 +233,10 @@ export default function Home() {
   if (screen === "gate")     return <GatePage onUnlock={handleGateUnlock} />;
   if (screen === "onboarding") return <OnboardingScreen onComplete={() => setScreen("feed")} />;
 
-  const userInit = initials(user?.user_metadata?.display_name || user?.email || "?");
+  const rawName = user?.user_metadata?.display_name;
+  const userInit = initials(
+    rawName && rawName !== "undefined" ? rawName : (user?.email || "?")
+  );
 
   const content = (
     <>
