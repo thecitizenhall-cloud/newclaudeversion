@@ -36,173 +36,6 @@ const T = {
   redHi:      "#E57373",
 };
 
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: ${T.bg}; color: ${T.cream}; font-family: 'DM Sans', sans-serif; font-size: 14px; min-height: 100vh; }
-
-  @keyframes fadeUp    { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes fadeIn    { from{opacity:0} to{opacity:1} }
-  @keyframes slideUp   { from{opacity:0;transform:translateY(100%)} to{opacity:1;transform:translateY(0)} }
-  @keyframes popIn     { 0%{transform:scale(0.92);opacity:0} 70%{transform:scale(1.02)} 100%{transform:scale(1);opacity:1} }
-  @keyframes spin      { to{transform:rotate(360deg)} }
-  @keyframes pulse     { 0%,100%{opacity:1} 50%{opacity:0.35} }
-  @keyframes notifPing { 0%{transform:scale(1);opacity:1} 100%{transform:scale(2.2);opacity:0} }
-  @keyframes barGrow   { from{width:0} to{width:var(--w)} }
-
-  /* Layout handled by shell */
-  @media(max-width:767px){ .settings-panel { display:none; } }
-
-  /* Topbar handled by shell */
-  .logo { display:flex;align-items:center;gap:9px; font-family:'DM Serif Display',serif; font-size:16px;color:${T.cream};flex-shrink:0; }
-  .logo-mark { width:26px;height:26px;border:1.5px solid ${T.amber}; border-radius:6px;display:flex;align-items:center;justify-content:center; }
-  .topbar-pill { display:flex;align-items:center;gap:6px; padding:4px 12px;border-radius:99px;font-size:12px; }
-  .pill-amber { background:${T.amberLo};border:1px solid ${T.amberMid};color:${T.amberHi}; }
-  .pill-teal  { background:${T.tealLo};border:1px solid ${T.teal};color:${T.tealHi}; }
-  .pill-dot   { width:6px;height:6px;border-radius:50%; }
-  .topbar-right { margin-left:auto;display:flex;align-items:center;gap:10px;position:relative; }
-  .notif-btn { position:relative;width:32px;height:32px;border-radius:8px; background:transparent;border:1px solid ${T.border}; display:flex;align-items:center;justify-content:center; cursor:pointer;transition:all 0.15s; }
-  .notif-btn:hover{border-color:${T.borderHi};}
-  .notif-count { position:absolute;top:-4px;right:-4px; width:16px;height:16px;border-radius:50%; background:${T.amber};color:${T.bg}; font-size:9px;font-weight:500; display:flex;align-items:center;justify-content:center; border:1.5px solid ${T.bg}; }
-  .notif-ping { position:absolute;top:-4px;right:-4px; width:16px;height:16px;border-radius:50%; background:${T.amber};opacity:0.4; animation:notifPing 1.4s ease infinite; }
-  .avatar { width:30px;height:30px;border-radius:8px; background:${T.amberLo};border:1px solid ${T.amberMid}; display:flex;align-items:center;justify-content:center; font-family:'DM Serif Display',serif;font-size:12px;color:${T.amberHi}; cursor:pointer; }
-
-  /* Sidebar handled by shell */
-  .sidebar-section { padding:4px 16px 2px;font-size:10px;font-weight:500;color:${T.creamFaint};text-transform:uppercase;letter-spacing:0.1em;margin-top:12px; }
-  .nav-item { display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;font-size:13px;color:${T.creamDim};transition:all 0.15s;border-left:2px solid transparent; }
-  .nav-item:hover{color:${T.cream};background:${T.surfaceHi};}
-  .nav-item.active{color:${T.tealHi};border-left-color:${T.teal};background:${T.tealLo};}
-  .nav-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-  .nav-badge{margin-left:auto;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:500;}
-  .badge-amber{background:${T.amberLo};border:1px solid ${T.amberMid};color:${T.amberHi};}
-  .badge-teal {background:${T.tealLo};border:1px solid ${T.teal}44;color:${T.tealHi};}
-
-  /* ── Tabs ── */
-  .tab-bar { display:flex;border-bottom:1px solid ${T.border};background:${T.bg};position:sticky;top:0;z-index:9; }
-  .tab-item { padding:11px 20px;font-size:13px;color:${T.creamDim};cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap; }
-  .tab-item:hover{color:${T.cream};}
-  .tab-item.active{color:${T.tealHi};border-bottom-color:${T.teal};}
-
-  /* ── Main ── */
-  .main { overflow-y:auto;display:flex;flex-direction:column;background:${T.bg};height:100%; }
-
-  .notif-header { padding:16px 22px 14px;border-bottom:1px solid ${T.border}; position:sticky;top:0;background:${T.bg};z-index:10; display:flex;align-items:flex-start;justify-content:space-between;gap:12px; }
-  .notif-title { font-family:'DM Serif Display',serif;font-size:20px;color:${T.cream}; }
-  .notif-title em{font-style:italic;color:${T.tealHi};}
-  .notif-sub{font-size:12px;color:${T.creamDim};margin-top:2px;}
-  .mark-all-btn { background:transparent;border:1px solid ${T.border};border-radius:7px; padding:5px 12px;font-family:'DM Sans',sans-serif;font-size:12px; color:${T.creamDim};cursor:pointer;transition:all 0.15s;white-space:nowrap;flex-shrink:0; }
-  .mark-all-btn:hover{border-color:${T.borderHi};color:${T.cream};}
-
-  .digest-bar { padding:12px 22px;border-bottom:1px solid ${T.border}; display:flex;align-items:center;gap:12px;flex-wrap:wrap; background:${T.surface}; }
-  .digest-label{font-size:12px;color:${T.creamDim};}
-  .digest-opts{display:flex;gap:6px;}
-  .digest-chip { padding:4px 12px;border-radius:99px;font-size:11px; cursor:pointer;border:1px solid ${T.border}; color:${T.creamDim};transition:all 0.15s; }
-  .digest-chip:hover{border-color:${T.borderHi};color:${T.cream};}
-  .digest-chip.sel{background:${T.tealLo};border-color:${T.teal};color:${T.tealHi};}
-  .push-toggle{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:${T.creamDim};}
-  .toggle-track{position:relative;width:32px;height:18px;background:${T.border};border-radius:9px;transition:background 0.2s;cursor:pointer;flex-shrink:0;}
-  .toggle-track.on{background:${T.teal};}
-  .toggle-thumb{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:${T.cream};transition:transform 0.2s;}
-  .toggle-track.on .toggle-thumb{transform:translateX(14px);}
-
-  .notif-group-label { padding:8px 22px 4px;font-size:10px;font-weight:500; color:${T.creamFaint};text-transform:uppercase;letter-spacing:0.1em;background:${T.bg}; }
-  .notif-item { display:flex;align-items:flex-start;gap:12px; padding:13px 22px;border-bottom:1px solid ${T.border}; cursor:pointer;transition:background 0.15s; animation:fadeUp 0.3s ease both; position:relative; }
-  .notif-item:hover{background:${T.surfaceHi}44;}
-  .notif-item.unread::before{ content:'';position:absolute;left:10px;top:50%;transform:translateY(-50%); width:5px;height:5px;border-radius:50%;background:${T.amber}; }
-  .notif-icon { width:36px;height:36px;border-radius:10px;flex-shrink:0; display:flex;align-items:center;justify-content:center;font-size:14px; margin-top:1px; }
-  .notif-body{flex:1;}
-  .notif-text{font-size:13px;color:${T.creamDim};line-height:1.5;}
-  .notif-text strong{color:${T.cream};}
-  .notif-time{font-size:11px;color:${T.creamFaint};margin-top:3px;}
-  .notif-action { margin-top:7px;display:inline-flex;align-items:center;gap:5px; padding:4px 10px;border-radius:6px;font-size:11px; border:1px solid ${T.border};color:${T.creamDim}; cursor:pointer;transition:all 0.15s;background:transparent; font-family:'DM Sans',sans-serif; }
-  .notif-action:hover{border-color:${T.borderHi};color:${T.cream};}
-  .notif-action.primary{background:${T.tealLo};border-color:${T.teal}44;color:${T.tealHi};}
-
-  /* ── City Rollup ── */
-  .rollup-header { padding:16px 22px 14px;border-bottom:1px solid ${T.border}; position:sticky;top:0;background:${T.bg};z-index:10; }
-  .rollup-title{font-family:'DM Serif Display',serif;font-size:20px;color:${T.cream};}
-  .rollup-title em{font-style:italic;color:${T.blueHi};}
-  .rollup-sub{font-size:12px;color:${T.creamDim};margin-top:2px;}
-  .city-grid { padding:16px 22px; display:grid; grid-template-columns:repeat(4,1fr); gap:8px; border-bottom:1px solid ${T.border}; }
-  @media(max-width:767px){ .city-grid { grid-template-columns:repeat(2,1fr); } }
-  .hood-tile { background:${T.surface};border:1px solid ${T.border}; border-radius:10px;padding:12px 10px; cursor:pointer;transition:all 0.2s; position:relative;overflow:hidden; animation:fadeUp 0.3s ease both; }
-  .hood-tile:hover{border-color:${T.borderHi};transform:translateY(-1px);}
-  .hood-tile.active-hood{border-color:${T.blue};background:${T.blueLo};}
-  .hood-tile-heat{position:absolute;inset:0;border-radius:9px;opacity:0.08;pointer-events:none;transition:opacity 0.3s;}
-  .hood-tile:hover .hood-tile-heat{opacity:0.14;}
-  .hood-tile-name{font-size:12px;font-weight:500;color:${T.cream};margin-bottom:4px;}
-  .hood-tile-issues{font-size:11px;color:${T.creamDim};}
-  .hood-tile-bar{height:3px;border-radius:99px;background:${T.border};margin-top:8px;overflow:hidden;}
-  .hood-tile-fill{height:100%;border-radius:99px;animation:barGrow 0.8s ease both;}
-  .hood-tile-residents{font-size:10px;color:${T.creamFaint};margin-top:4px;}
-  .city-issue-list{padding:0 22px 20px;}
-  .section-head{padding:14px 0 8px;font-size:10px;font-weight:500;color:${T.creamFaint};text-transform:uppercase;letter-spacing:0.1em;display:flex;align-items:center;gap:8px;}
-  .section-head-line{flex:1;height:1px;background:${T.border};}
-  .city-issue { background:${T.surface};border:1px solid ${T.border}; border-radius:12px;margin-bottom:10px;overflow:hidden; animation:fadeUp 0.3s ease both;transition:border-color 0.15s; cursor:pointer; }
-  .city-issue:hover{border-color:${T.borderHi};}
-  .city-issue.responded{border-color:${T.teal}44;}
-  .city-issue-top{padding:14px 16px 10px;display:flex;align-items:flex-start;gap:10px;}
-  .city-issue-rank{width:26px;height:26px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;background:${T.blueLo};color:${T.blueHi};border:1px solid ${T.blue}44;}
-  .city-issue-title{font-size:14px;font-weight:500;color:${T.cream};line-height:1.4;}
-  .city-issue-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 16px 10px;}
-  .hood-chip{padding:2px 8px;border-radius:99px;font-size:10px;font-weight:500;}
-  .city-issue-bar-row{padding:0 16px;margin-bottom:10px;display:flex;align-items:center;gap:10px;}
-  .city-bar-bg{flex:1;height:5px;border-radius:99px;background:${T.border};overflow:hidden;}
-  .city-bar-fill{height:100%;border-radius:99px;animation:barGrow 0.9s ease both;}
-  .city-bar-stat{font-size:11px;color:${T.creamDim};white-space:nowrap;}
-  .official-resp{border-top:1px solid ${T.border};padding:12px 16px;background:${T.tealLo};display:flex;gap:10px;align-items:flex-start;}
-  .official-av{width:28px;height:28px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;background:${T.teal}33;color:${T.tealHi};border:1px solid ${T.teal}44;}
-  .official-byline{font-size:12px;color:${T.tealHi};font-weight:500;margin-bottom:3px;}
-  .official-role{font-size:10px;color:${T.tealHi};opacity:0.7;}
-  .official-text{font-size:12px;color:${T.creamDim};line-height:1.6;margin-top:4px;}
-  .awaiting-resp{border-top:1px solid ${T.border};padding:10px 16px;display:flex;align-items:center;gap:8px;font-size:11px;color:${T.creamFaint};}
-  .pulse-dot{width:6px;height:6px;border-radius:50%;background:${T.amberHi};animation:pulse 1.4s ease infinite;flex-shrink:0;}
-
-  /* ── Settings panel ── */
-  .settings-panel { background:${T.surface};border-left:1px solid ${T.border};display:flex;flex-direction:column;overflow-y:auto; }
-  .settings-header{padding:14px 18px 12px;border-bottom:1px solid ${T.border};position:sticky;top:0;background:${T.surface};z-index:5;}
-  .settings-title{font-family:'DM Serif Display',serif;font-size:16px;color:${T.cream};margin-bottom:2px;}
-  .settings-sub{font-size:11px;color:${T.creamDim};}
-  .settings-body{padding:16px;display:flex;flex-direction:column;gap:16px;}
-  .settings-section-label{font-size:10px;font-weight:500;color:${T.creamFaint};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;}
-  .pref-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:${T.bg};border:1px solid ${T.border};border-radius:8px;margin-bottom:6px;cursor:pointer;transition:border-color 0.15s;}
-  .pref-row:hover{border-color:${T.borderHi};}
-  .pref-icon{width:28px;height:28px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;}
-  .pref-info{flex:1;}
-  .pref-label{font-size:13px;color:${T.cream};}
-  .pref-desc{font-size:11px;color:${T.creamDim};margin-top:1px;}
-  .live-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .live-stat{display:flex;align-items:baseline;gap:6px;padding:10px 12px;background:${T.bg};border:1px solid ${T.border};border-radius:8px;}
-  .live-num{font-family:'DM Serif Display',serif;font-size:22px;color:${T.cream};transition:all 0.4s;}
-  .live-label{font-size:11px;color:${T.creamDim};}
-
-  /* ── Official onboard card ── */
-  .official-onboard-card{background:${T.bg};border:1px solid ${T.teal}44;border-radius:10px;overflow:hidden;}
-  .official-onboard-header{background:${T.tealLo};padding:12px 14px;border-bottom:1px solid ${T.teal}22;font-size:13px;font-weight:500;color:${T.tealHi};display:flex;align-items:center;gap:8px;}
-  .official-onboard-body{padding:14px;}
-  .official-step{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;}
-  .official-step:last-child{margin-bottom:0;}
-  .official-step-num{width:20px;height:20px;border-radius:50%;flex-shrink:0;background:${T.tealLo};border:1px solid ${T.teal}44;font-size:10px;color:${T.tealHi};font-weight:500;display:flex;align-items:center;justify-content:center;margin-top:1px;}
-  .official-step-text{font-size:12px;color:${T.creamDim};line-height:1.5;}
-  .official-step-text strong{color:${T.cream};}
-  .invite-official-btn{width:100%;padding:10px;border-radius:8px;background:${T.teal};border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;margin-top:12px;}
-  .invite-official-btn:hover{opacity:0.9;}
-
-  /* ── Mobile bottom sheet for ApplyOfficial ── */
-  .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;animation:fadeIn 0.2s ease;}
-  .sheet-panel{position:fixed;left:0;right:0;bottom:0;background:${T.surface};border-radius:16px 16px 0 0;border-top:1px solid ${T.border};max-height:90vh;overflow-y:auto;z-index:101;animation:slideUp 0.3s ease;}
-  .sheet-handle{width:36px;height:4px;border-radius:99px;background:${T.border};margin:12px auto 0;}
-
-  /* ── Misc ── */
-  .th-empty{text-align:center;padding:40px 20px;color:${T.creamFaint};font-size:13px;line-height:1.8;}
-  .th-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 20px;color:${T.creamDim};font-size:13px;}
-  .th-spinner{width:16px;height:16px;border:2px solid ${T.border};border-top-color:${T.amber};border-radius:50%;animation:spin 0.8s linear infinite;}
-  .th-toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:${T.surface};border:1px solid ${T.border};border-radius:10px;padding:9px 18px;font-size:13px;color:${T.cream};display:flex;align-items:center;gap:8px;animation:fadeUp 0.3s ease;z-index:200;white-space:nowrap;max-width:90vw;}
-  .th-toast-dot{width:7px;height:7px;border-radius:50%;}
-  ::-webkit-scrollbar{width:3px;}
-  ::-webkit-scrollbar-track{background:transparent;}
-  ::-webkit-scrollbar-thumb{background:${T.border};border-radius:99px;}
-`;
 
 const NOTIF_PREFS = [
   { id:"expert",    icon:"◈", iconBg:T.purpleLo, iconColor:T.purpleHi, label:"Expert answers",     desc:"When an expert answers a question you asked" },
@@ -301,7 +134,7 @@ function CityIssueCard({ issue, idx }) {
   );
 }
 
-export default function NotificationsScreen({ onNavigate }) {
+export default function NotificationsScreen() {
   const [tab,          setTab]          = useState("notifications");
   const [notifs,       setNotifs]       = useState([]);
   const [loading,      setLoading]      = useState(true);
@@ -410,6 +243,7 @@ export default function NotificationsScreen({ onNavigate }) {
     showToast(`${NOTIF_PREFS.find(p=>p.id===id)?.label} ${prefs[id]?"off":"on"}`, T.tealHi);
   }
 
+  async function handleSignOut() { await supabase.auth.signOut(); }
 
   const unreadCount = notifs.filter(n => !n.read).length;
   const groups = ["today","yesterday","earlier"];
@@ -431,10 +265,264 @@ export default function NotificationsScreen({ onNavigate }) {
 
   return (
     <>
-      <style>{css}</style>
-      {/* Two-column: content + settings panel */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 280px", height:"100%", overflow:"hidden" }}>
-      </div>{/* end two-column grid */}
+      <div className="app">
+
+        {/* Topbar */}
+        <div className="topbar">
+          <div className="logo"><div className="logo-mark"><LogoMark/></div>Townhall</div>
+          <div className="topbar-pill pill-amber"><div className="pill-dot" style={{background:T.amber}}/>{neighborhood}</div>
+          <div className="topbar-pill pill-teal" style={{cursor:"pointer"}} onClick={()=>setTab("rollup")}>
+            <div className="pill-dot" style={{background:T.teal}}/>City-wide
+          </div>
+          <div className="topbar-right">
+            <div className="notif-btn" onClick={()=>setTab("notifications")}>
+              <BellIcon color={unreadCount>0?T.amberHi:T.creamDim}/>
+              {unreadCount>0&&<><div className="notif-count">{unreadCount}</div><div className="notif-ping"/></>}
+            </div>
+            <div className="topbar-pill pill-teal"><CheckIcon color={T.tealHi}/>ZK verified</div>
+            <div className="avatar" onClick={handleSignOut} title="Sign out">{userInit}</div>
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div className="sidebar">
+          <div className="sidebar-section">Sprint 4</div>
+          <div className={`nav-item${tab==="notifications"?" active":""}`} onClick={()=>setTab("notifications")}>
+            <div className="nav-dot" style={{background:tab==="notifications"?T.teal:T.creamFaint}}/>
+            Notifications
+            {unreadCount>0&&<span className="nav-badge badge-amber">{unreadCount}</span>}
+          </div>
+          <div className={`nav-item${tab==="rollup"?" active":""}`} onClick={()=>setTab("rollup")}>
+            <div className="nav-dot" style={{background:tab==="rollup"?T.teal:T.creamFaint}}/>
+            City-wide rollup
+            <span className="nav-badge badge-teal">{CITY_ISSUES.length}</span>
+          </div>
+          <div className={`nav-item${tab==="officials"?" active":""}`} onClick={()=>setTab("officials")}>
+            <div className="nav-dot" style={{background:tab==="officials"?T.teal:T.creamFaint}}/>
+            Official responses
+            <span className="nav-badge badge-teal">{CITY_ISSUES.filter(i=>i.status==="responded").length}</span>
+          </div>
+          <div className="sidebar-section">Navigation</div>
+          {["Banter feed","Expert Q&A"].map(n=>(
+            <div key={n} className="nav-item"><div className="nav-dot" style={{background:T.creamFaint}}/>{n}</div>
+          ))}
+          <div className="sidebar-section">Account</div>
+          <div className="nav-item" onClick={handleSignOut} style={{color:T.red}}>
+            <div className="nav-dot" style={{background:T.red}}/>Sign out
+          </div>
+        </div>
+
+        {/* Main */}
+        <div className="main">
+
+          {/* ── Notifications tab ── */}
+          {tab==="notifications"&&(
+            <>
+              <div className="notif-header">
+                <div>
+                  <div className="notif-title">Your <em>notifications</em></div>
+                  <div className="notif-sub">{unreadCount>0?`${unreadCount} unread`:"All caught up"} · {neighborhood} + city-wide</div>
+                </div>
+                {unreadCount>0&&<button className="mark-all-btn" onClick={markAll}>Mark all read</button>}
+              </div>
+              <div className="digest-bar">
+                <span className="digest-label">Digest</span>
+                <div className="digest-opts">
+                  {["realtime","daily","weekly"].map(d=>(
+                    <div key={d} className={`digest-chip${digest===d?" sel":""}`}
+                      onClick={()=>{setDigest(d);showToast(`Digest set to ${d}`,T.tealHi);}}>
+                      {d.charAt(0).toUpperCase()+d.slice(1)}
+                    </div>
+                  ))}
+                </div>
+                <div className="push-toggle">
+                  Push
+                  <div className={`toggle-track${push?" on":""}`} onClick={()=>setPush(p=>!p)}>
+                    <div className="toggle-thumb"/>
+                  </div>
+                </div>
+              </div>
+
+              {loading&&<div className="th-loading"><div className="th-spinner"/>Loading notifications…</div>}
+
+              {!loading&&notifs.length===0&&(
+                <div className="th-empty">No notifications yet.<br/>Activity in your neighborhood will appear here.</div>
+              )}
+
+              {!loading&&groups.map(group=>{
+                const items = notifs.filter(n=>getGroup(n.created_at)===group);
+                if (!items.length) return null;
+                return(
+                  <div key={group}>
+                    <div className="notif-group-label">{group.charAt(0).toUpperCase()+group.slice(1)}</div>
+                    {items.map((n,i)=><NotifItem key={n.id} n={n} onRead={markRead} idx={i}/>)}
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {/* ── City rollup + officials tabs ── */}
+          {(tab==="rollup"||tab==="officials")&&(
+            <>
+              <div className="rollup-header">
+                <div className="rollup-title">{tab==="officials"?<><em>Official</em> responses</>:<><em>City-wide</em> rollup</>}</div>
+                <div className="rollup-sub">
+                  {tab==="officials"
+                    ?`${CITY_ISSUES.filter(i=>i.status==="responded").length} responses · ${CITY_ISSUES.filter(i=>i.status==="awaiting").length} awaiting`
+                    :`${HOODS.length} neighborhoods · ${CITY_ISSUES.length} active issues`}
+                </div>
+              </div>
+              <div className="tab-bar">
+                <div className={`tab-item${tab==="rollup"?" active":""}`} onClick={()=>setTab("rollup")}>All issues</div>
+                <div className={`tab-item${tab==="officials"?" active":""}`} onClick={()=>setTab("officials")}>
+                  Official responses ({CITY_ISSUES.filter(i=>i.status==="responded").length})
+                </div>
+              </div>
+              {tab==="rollup"&&(
+                <div className="city-grid">
+                  {HOODS.map((h,i)=>(
+                    <div key={h.id} className={`hood-tile${activeHood===h.name?" active-hood":""}`}
+                      style={{ animationDelay:`${i*0.04}s` }}
+                      onClick={()=>setActiveHood(activeHood===h.name?null:h.name)}>
+                      <div className="hood-tile-heat" style={{background:h.heat}}/>
+                      <div className="hood-tile-name">{h.name}</div>
+                      <div className="hood-tile-issues">{h.issues} issues</div>
+                      <div className="hood-tile-bar"><div className="hood-tile-fill" style={{"--w":`${h.pct}%`,width:`${h.pct}%`,background:h.heat}}/></div>
+                      <div className="hood-tile-residents">{h.residents.toLocaleString()} residents</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="city-issue-list">
+                <div className="section-head">
+                  {activeHood
+                    ?<><span>{activeHood} issues</span><div className="section-head-line"/><span style={{color:T.creamFaint,cursor:"pointer",fontSize:11}} onClick={()=>setActiveHood(null)}>clear ×</span></>
+                    :<><span>All city-wide issues</span><div className="section-head-line"/></>}
+                </div>
+                {(tab==="officials"?CITY_ISSUES.filter(i=>i.status==="responded"):filteredIssues).map((issue,i)=>(
+                  <CityIssueCard key={issue.id} issue={issue} idx={i}/>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ── Settings + Official onboarding panel ── */}
+        <div className="settings-panel">
+          <div className="settings-header">
+            <div className="settings-title">Notifications</div>
+            <div className="settings-sub">Your preferences</div>
+          </div>
+          <div className="settings-body">
+
+            {/* Live stats */}
+            <div>
+              <div className="settings-section-label">City activity · live</div>
+              <div className="live-grid">
+                {[
+                  { num:liveStats.voices,    label:"Voices today",        delta:"+12" },
+                  { num:liveStats.issues,    label:"Active issues",       delta:"+2"  },
+                  { num:liveStats.responses, label:"Official responses",  delta:"+1"  },
+                  { num:liveStats.experts,   label:"Experts online",      delta:""    },
+                ].map((s,i)=>(
+                  <div key={i} className="live-stat">
+                    <div className="live-num">{s.num.toLocaleString()}</div>
+                    <div style={{flex:1}}>
+                      <div className="live-label">{s.label}</div>
+                      {s.delta&&<div style={{fontSize:11,color:T.tealHi,display:"flex",alignItems:"center",gap:3}}><UpIcon color={T.tealHi}/>{s.delta}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Push toggle */}
+            <div>
+              <div className="settings-section-label">Push notifications</div>
+              <div style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:T.bg,border:`1px solid ${T.border}`,borderRadius:8 }}>
+                <BellIcon color={T.creamDim}/>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,color:T.cream}}>Mobile push</div>
+                  <div style={{fontSize:11,color:T.creamDim}}>Receive alerts on your device</div>
+                </div>
+                <div className={`toggle-track${push?" on":""}`} onClick={()=>setPush(p=>!p)}>
+                  <div className="toggle-thumb"/>
+                </div>
+              </div>
+            </div>
+
+            {/* Alert types */}
+            <div>
+              <div className="settings-section-label">Alert types</div>
+              {NOTIF_PREFS.map(p=>(
+                <div key={p.id} className="pref-row" onClick={()=>togglePref(p.id)}>
+                  <div className="pref-icon" style={{background:p.iconBg,color:p.iconColor}}>{p.icon}</div>
+                  <div className="pref-info">
+                    <div className="pref-label">{p.label}</div>
+                    <div className="pref-desc">{p.desc}</div>
+                  </div>
+                  <div className={`toggle-track${prefs[p.id]?" on":""}`}>
+                    <div className="toggle-thumb"/>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Official onboarding ── */}
+            <div>
+              <div className="settings-section-label">Phase 3 · official access</div>
+              <div className="official-onboard-card">
+                <div className="official-onboard-header">
+                  <CheckIcon color={T.tealHi}/>
+                  Are you a government official?
+                </div>
+                <div className="official-onboard-body">
+
+                  {/* Already applied */}
+                  {officialAppStatus === "pending" && (
+                    <div style={{ fontSize:12,color:T.amberHi,background:T.amberLo,border:`1px solid ${T.amberMid}`,borderRadius:8,padding:"10px 12px",marginBottom:12,lineHeight:1.6 }}>
+                      Your application is under review. You&apos;ll be notified once approved.
+                    </div>
+                  )}
+                  {officialAppStatus === "approved" && (
+                    <div style={{ fontSize:12,color:T.tealHi,background:T.tealLo,border:`1px solid ${T.teal}44`,borderRadius:8,padding:"10px 12px",marginBottom:12,lineHeight:1.6,display:"flex",alignItems:"center",gap:8 }}>
+                      <CheckIcon color={T.tealHi}/> Your official account is verified and active.
+                    </div>
+                  )}
+
+                  {officialAppStatus !== "approved" && (
+                    <>
+                      <div className="official-step">
+                        <div className="official-step-num">1</div>
+                        <div className="official-step-text">Submit your name, title, and jurisdiction — we verify against <strong>US government records</strong>.</div>
+                      </div>
+                      <div className="official-step">
+                        <div className="official-step-num">2</div>
+                        <div className="official-step-text">Elected officials are <strong>auto-verified</strong> via Google Civic API. Appointed staff go through brief manual review.</div>
+                      </div>
+                      <div className="official-step">
+                        <div className="official-step-num">3</div>
+                        <div className="official-step-text">Once approved, your responses to civic issues carry a <strong>verified official badge</strong> visible to all residents.</div>
+                      </div>
+                      <div className="official-step">
+                        <div className="official-step-num">4</div>
+                        <div className="official-step-text">Your silence on issues is also visible — Townhall shows residents <strong>which officials have responded</strong> and which haven&apos;t.</div>
+                      </div>
+                      <button
+                        className="invite-official-btn"
+                        onClick={() => setShowOfficial(true)}>
+                        {officialAppStatus === "pending" ? "View my application →" : "Apply as a verified official →"}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
 
       {/* ── ApplyOfficial bottom sheet ── */}
       {showOfficial && (
