@@ -420,20 +420,14 @@ export default function FeedScreen({ onNavigate }) {
   }, []);
 
   async function loadPosts(user, hoodId) {
-    console.log("loadPosts called — hoodId:", hoodId, "user:", user?.id);
-    let query = supabase
+    // Simplified — load all posts, no filter
+    const { data, error } = await supabase
       .from("posts")
       .select("*, profiles(display_name,neighborhood)")
       .order("created_at", { ascending:false })
       .limit(50);
 
-    // Filter by neighborhood if we have an ID
-    if (hoodId) {
-      query = query.eq("neighborhood_id", hoodId);
-    }
-
-    const { data, error } = await query;
-    console.log("loadPosts result — count:", data?.length, "error:", error?.message);
+    console.log("loadPosts:", data?.length, "posts, error:", error?.message);
     if (!data) return;
     if (user && data.length) {
       const { data: upvotes } = await supabase.from("post_upvotes").select("post_id").eq("user_id", user.id).in("post_id", data.map(p=>p.id));
