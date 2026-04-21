@@ -175,7 +175,7 @@ function ComingSoonGate({ onUnlock }) {
   function handleSubmit() {
     if (code.trim().toLowerCase() === BETA_CODE.trim().toLowerCase()) {
       // Store in sessionStorage so refresh doesn't kick them out
-      sessionStorage.setItem("th_beta_unlocked", "1");
+      if (typeof window !== "undefined") sessionStorage.setItem("th_beta_unlocked", "1");
       onUnlock();
     } else {
       setError("Incorrect access code. Try again.");
@@ -221,7 +221,7 @@ function ComingSoonGate({ onUnlock }) {
 
 // ── Main App ───────────────────────────────────────────────────────────────
 export default function Home() {
-  const [screen,       setScreen]       = useState("loading");
+  const [screen,       setScreen]       = useState("loading"); // always start loading
   const [user,         setUser]         = useState(null);
   const [neighborhood, setNeighborhood] = useState("Riverdale");
   const [unread,       setUnread]       = useState(0);
@@ -229,8 +229,10 @@ export default function Home() {
 
   useEffect(() => {
     // Check if already unlocked this session
+    // sessionStorage only available in browser (not SSR)
     if (BETA_CODE) {
-      const unlocked = sessionStorage.getItem("th_beta_unlocked") === "1";
+      const unlocked = typeof window !== "undefined" && 
+        sessionStorage.getItem("th_beta_unlocked") === "1";
       if (!unlocked) { setGateOpen(false); setScreen("gate"); return; }
     }
 
@@ -290,12 +292,10 @@ export default function Home() {
   if (screen === "gate") return <ComingSoonGate onUnlock={handleGateUnlock}/>;
 
   if (screen === "loading") return (
-    <>
-      <style>{css}</style>
-      <div style={{ height:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <div style={{ width:24, height:24, border:`2px solid ${T.border}`, borderTopColor:T.amber, borderRadius:"50%", animation:"spin 0.8s linear infinite" }}/>
-      </div>
-    </>
+    <div style={{ height:"100vh", background:"#0F0E0C", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ width:24, height:24, border:"2px solid #2C2A26", borderTopColor:"#D4922A", borderRadius:"50%", animation:"spin 0.8s linear infinite" }}/>
+      <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+    </div>
   );
 
   if (screen === "onboarding") return (
