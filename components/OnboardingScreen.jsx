@@ -300,15 +300,40 @@ function StepAccount({ onNext }) {
 
 // ── Step 2: Neighborhood ──────────────────────────────────────────────────
 function StepNeighborhood({ onNext }) {
-  const [locating, setLocating] = useState(true);
-  const [selected, setSelected] = useState(null);
-  const [locLabel, setLocLabel] = useState("Locating you…");
+  const [hoods,     setHoods]     = useState([]);
+  const [selected,  setSelected]  = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [locating,  setLocating]  = useState(true);
+  const [coords,    setCoords]    = useState(null);
+  const [error,     setError]     = useState("");
 
   useEffect(() => {
-    const t1 = setTimeout(() => setLocLabel("Signal acquired"), 1200);
-    const t2 = setTimeout(() => setLocating(false), 2000);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    // Load neighborhoods from DB
+    supabase.from("neighborhoods").select("id, name, slug").order("name").then(({ data }) => {
+      setHoods(data || []);
+      setLoading(false);
+    });
+
+    // Try to get GPS coords for display (not required)
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          setCoords({ lat: pos.coords.latitude.toFixed(4), lng: pos.coords.longitude.toFixed(4) });
+          setLocating(false);
+        },
+        () => setLocating(false), // fail silently
+        { timeout: 3000 }
+      );
+    } else {
+      setLocating(false);
+    }
+
+    // Fallback: stop locating after 3s regardless
+    const t = setTimeout(() => setLocating(false), 3000);
+    return () => clearTimeout(t);
   }, []);
+
+  const selectedHood = hoods.find(h => h.id === selected);
 
   return (
     <>
@@ -316,29 +341,51 @@ function StepNeighborhood({ onNext }) {
         <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall Café</span></div>
         <div className="th-progress"><div className="th-progress-dot done"/><div className="th-progress-dot active"/><div className="th-progress-dot"/></div>
         <h1 className="th-step-title">Your <em>neighborhood</em></h1>
-        <p className="th-step-sub">We detect nearby communities. Your exact location is used once and discarded.</p>
+        <p className="th-step-sub">Choose your neighborhood. Your exact location is never stored.</p>
       </div>
       <div className="th-body">
         <div className="geo-map">
           <div className="geo-grid"/>
-          {locating ? (<><div className="geo-ring"/><div className="geo-ring"/><div className="geo-ring"/><div className="geo-dot"/></>) : <div className="geo-dot" style={{ animation:"none" }}/>}
-          <div className="geo-label">{locating ? <span style={{ animation:"pulse 1s ease infinite", display:"inline-block" }}>{locLabel}</span> : "40.7128° N, 74.0060° W"}</div>
+          {locating
+            ? (<><div className="geo-ring"/><div className="geo-ring"/><div className="geo-ring"/><div className="geo-dot"/></>)
+            : <div className="geo-dot" style={{ animation:"none" }}/>}
+          <div className="geo-label">
+            {locating
+              ? <span style={{ animation:"pulse 1s ease infinite", display:"inline-block" }}>Locating you…</span>
+              : coords ? `${coords.lat}° N, ${coords.lng}° W` : "Location optional"}
+          </div>
         </div>
-        {!locating && (
+
+        {loading ? (
+          <div style={{ textAlign:"center", padding:"20px 0", color:T.creamDim, fontSize:13 }}>
+            <span style={{ display:"inline-block", width:14, height:14, border:`2px solid ${T.border}`, borderTopColor:T.amber, borderRadius:"50%", animation:"spin 0.8s linear infinite", marginRight:8, verticalAlign:"middle" }}/>
+            Loading neighborhoods…
+          </div>
+        ) : (
           <>
-            <label className="th-label" style={{ marginBottom:10, display:"block" }}>Neighborhoods near you</label>
+            <label className="th-label" style={{ marginBottom:10, display:"block" }}>
+              {hoods.length > 0 ? "Select your neighborhood" : "No neighborhoods found"}
+            </label>
             <div className="hood-grid">
-              {NEARBY.map(h => (
+              {hoods.map(h => (
                 <div key={h.id} className={`hood-item${selected===h.id?" selected":""}`} onClick={() => setSelected(h.id)}>
-                  <div><div className="hood-name">{h.name}</div><div className="hood-dist">{h.dist} away</div></div>
+                  <div><div className="hood-name">{h.name}</div></div>
                   <div className="hood-check">{selected===h.id && <CheckIcon color={T.bg} size={11}/>}</div>
                 </div>
               ))}
             </div>
           </>
         )}
-        <button className="th-btn th-btn-primary" disabled={!selected} onClick={() => onNext({ hood: NEARBY.find(h => h.id===selected) })}>Continue →</button>
-        <button className="th-btn th-btn-ghost">I don&apos;t see my neighborhood — create one</button>
+
+        {error && <div style={{ fontSize:12, color:"#E57373", marginBottom:10 }}>{error}</div>}
+
+        <button className="th-btn th-btn-primary" disabled={!selected || loading}
+          onClick={() => onNext({ hood: { id: selectedHood.id, name: selectedHood.name } })}>
+          Continue →
+        </button>
+        <button className="th-btn th-btn-ghost" onClick={() => setError("Neighborhood creation coming soon — contact us to add yours.")}>
+          I don&apos;t see my neighborhood
+        </button>
       </div>
     </>
   );
@@ -398,12 +445,33 @@ function StepZK({ hood, onNext }) {
 
 // ── Step 4: Welcome ───────────────────────────────────────────────────────
 function StepWelcome({ user, hood }) {
+  const [saving, setSaving] = useState(false);
+
   async function handleEnter() {
-    // Save neighborhood choice to user metadata in Supabase
+    setSaving(true);
+
+    // 1. Save to auth user metadata (used by index.jsx for display)
     await supabase.auth.updateUser({
-      data: { neighborhood: hood.name, neighborhood_id: hood.id },
+      data: {
+        display_name:    user.name,
+        neighborhood:    hood.name,
+        neighborhood_id: hood.id,
+      },
     });
-    // Auth state change in index.jsx will automatically navigate to feed
+
+    // 2. Update profiles table with neighborhood_id + display_name
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      await supabase.from("profiles").update({
+        display_name:    user.name,
+        neighborhood:    hood.name,
+        neighborhood_id: hood.id,
+        updated_at:      new Date().toISOString(),
+      }).eq("id", authUser.id);
+    }
+
+    setSaving(false);
+    // Auth state change in index.jsx navigates to feed automatically
   }
 
   return (
@@ -431,7 +499,7 @@ function StepWelcome({ user, hood }) {
             <div key={s} className="next-step"><div className="next-step-num">{i+1}</div><span style={{ flex:1 }}>{s}</span><ArrowRight/></div>
           ))}
         </div>
-        <button className="th-btn th-btn-primary" onClick={handleEnter}>Open Townhall</button>
+        <button className="th-btn th-btn-primary" onClick={handleEnter} disabled={saving}>{saving ? "Setting up…" : "Open Townhall"}</button>
       </div>
     </>
   );
