@@ -521,7 +521,16 @@ export default function FeedScreen({ onNavigate }) {
       upvote_count:    0,
       escalated:       false,
     });
-    if (error) { showToast("Failed to post — " + error.message); } else { setDraft(""); showToast("Posted to " + neighborhood); }
+    if (error) {
+      if (error.message.includes("Rate limit")) {
+        showToast("You've posted 10 times this hour — try again later");
+      } else {
+        showToast("Failed to post — " + error.message);
+      }
+    } else {
+      setDraft("");
+      showToast("Posted to " + neighborhood);
+    }
     setPosting(false);
   }
 
