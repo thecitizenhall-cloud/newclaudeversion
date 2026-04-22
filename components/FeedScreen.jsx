@@ -430,6 +430,8 @@ export default function FeedScreen({ onNavigate }) {
   const [neighborhood,   setNeighborhood]   = useState("Riverdale");
   const [neighborhoodId,  setNeighborhoodId]  = useState(null);
   const [showIssues,   setShowIssues]   = useState(false); // mobile civic sheet
+  const [loadError,    setLoadError]    = useState(null);
+  const [isOffline,    setIsOffline]    = useState(false);
   const toastTimer  = useRef(null);
   const channelRef  = useRef(null);
 
