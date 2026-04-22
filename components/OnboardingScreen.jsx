@@ -444,34 +444,39 @@ function StepZK({ hood, onNext }) {
 }
 
 // ── Step 4: Welcome ───────────────────────────────────────────────────────
-function StepWelcome({ user, hood }) {
+function StepWelcome({ user, hood, onComplete }) {
   const [saving, setSaving] = useState(false);
 
   async function handleEnter() {
     setSaving(true);
 
-    // 1. Save to auth user metadata (used by index.jsx for display)
-    await supabase.auth.updateUser({
-      data: {
-        display_name:    user.name,
-        neighborhood:    hood.name,
-        neighborhood_id: hood.id,
-      },
-    });
+    try {
+      // 1. Save to auth user metadata
+      await supabase.auth.updateUser({
+        data: {
+          display_name:    user.name,
+          neighborhood:    hood.name,
+          neighborhood_id: hood.id,
+        },
+      });
 
-    // 2. Update profiles table with neighborhood_id + display_name
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (authUser) {
-      await supabase.from("profiles").update({
-        display_name:    user.name,
-        neighborhood:    hood.name,
-        neighborhood_id: hood.id,
-        updated_at:      new Date().toISOString(),
-      }).eq("id", authUser.id);
+      // 2. Update profiles table
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        await supabase.from("profiles").update({
+          display_name:    user.name,
+          neighborhood:    hood.name,
+          neighborhood_id: hood.id,
+          updated_at:      new Date().toISOString(),
+        }).eq("id", authUser.id);
+      }
+    } catch(e) {
+      console.error("handleEnter error:", e);
     }
 
     setSaving(false);
-    // Auth state change in index.jsx navigates to feed automatically
+    // Explicitly call onComplete — don't rely on auth state change
+    if (onComplete) onComplete();
   }
 
   return (
@@ -506,7 +511,7 @@ function StepWelcome({ user, hood }) {
 }
 
 // ── App shell ─────────────────────────────────────────────────────────────
-export default function OnboardingScreen() {
+export default function OnboardingScreen({ onComplete }) {
   const [step, setStep] = useState(1);
   const [user, setUser] = useState(null);
   const [hood, setHood] = useState(null);
@@ -518,7 +523,7 @@ export default function OnboardingScreen() {
         {step === 1 && <StepAccount onNext={data => { setUser(data); setStep(2); }}/>}
         {step === 2 && <StepNeighborhood onNext={data => { setHood(data.hood); setStep(3); }}/>}
         {step === 3 && <StepZK hood={hood} onNext={() => setStep(4)}/>}
-        {step === 4 && <StepWelcome user={user} hood={hood}/>}
+        {step === 4 && <StepWelcome user={user} hood={hood} onComplete={onComplete}/>}
       </div>
     </>
   );
