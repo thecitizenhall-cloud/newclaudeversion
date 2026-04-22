@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
 // ── Change to your email ───────────────────────────────────────────────────
-const ADMIN_EMAIL = "thecitizenhall@gmail.com";
+const ADMIN_EMAIL = "your@email.com";
 
 const T = {
   bg:"#0F0E0C", surface:"#1A1916", border:"#2C2A26", borderHi:"#4A4640",
@@ -61,6 +61,7 @@ export default function AdminPage() {
   const [tab,          setTab]          = useState("experts");
   const [experts,      setExperts]      = useState([]);
   const [officials,    setOfficials]    = useState([]);
+  const [reports,      setReports]      = useState([]);
   const [filter,       setFilter]       = useState("pending");
   const [notes,        setNotes]        = useState({});
   const [processing,   setProcessing]   = useState({});
@@ -78,12 +79,14 @@ export default function AdminPage() {
   }, []);
 
   async function loadAll() {
-    const [{ data: exp }, { data: off }] = await Promise.all([
+    const [{ data: exp }, { data: off }, { data: rep }] = await Promise.all([
       supabase.from("expert_applications").select("*").order("created_at", { ascending:false }),
       supabase.from("official_applications").select("*").order("created_at", { ascending:false }),
+      supabase.from("reported_posts").select("*, posts(body, author_id), reporter:reporter_id(email)").order("created_at", { ascending:false }),
     ]);
     setExperts(exp || []);
     setOfficials(off || []);
+    setReports(rep || []);
   }
 
   async function getDocUrl(app) {
@@ -164,6 +167,7 @@ export default function AdminPage() {
           {[
             { key:"experts",   label:"Expert applications",   count:experts.filter(a=>a.status==="pending").length,   color:T.purpleHi },
             { key:"officials", label:"Official applications", count:officials.filter(a=>a.status==="pending").length, color:T.tealHi },
+            { key:"reports",   label:"Reported posts",        count:reports.filter(r=>r.status==="pending").length,   color:"#E57373"  },
           ].map(t => (
             <div key={t.key} onClick={()=>setTab(t.key)} style={{
               padding:"10px 20px", fontSize:13, cursor:"pointer",
@@ -271,6 +275,56 @@ export default function AdminPage() {
           </div>
         ))}
       </div>
+
+      {/* ── Reported posts ── */}
+      {tab === "reports" && (
+        <div style={{ maxWidth:900, margin:"0 auto", padding:"24px" }}>
+          {reports.length === 0 && (
+            <div style={{ textAlign:"center", padding:"60px 0", color:T.creamFaint, fontSize:13 }}>No reported posts yet.</div>
+          )}
+          {reports.filter(r => filter === "all" || r.status === filter).map((r, i) => (
+            <div key={r.id} style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:12, marginBottom:16, overflow:"hidden", animation:"fadeUp 0.3s ease both", animationDelay:`${i*0.05}s` }}>
+              <div style={{ padding:"14px 20px", borderBottom:`1px solid ${T.border}` }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+                  <span style={{ padding:"2px 9px", borderRadius:99, fontSize:11, fontWeight:500, background: r.status==="pending" ? T.amberLo : r.status==="dismissed" ? T.border : T.tealLo, color: r.status==="pending" ? T.amberHi : r.status==="dismissed" ? T.creamDim : T.tealHi, border:`1px solid ${r.status==="pending" ? T.amberMid : T.border}` }}>{r.status}</span>
+                  <span style={{ fontSize:12, color:T.creamDim, background:T.bg, border:`1px solid ${T.border}`, borderRadius:99, padding:"2px 9px" }}>{r.reason}</span>
+                  <span style={{ fontSize:11, color:T.creamFaint, marginLeft:"auto" }}>{new Date(r.created_at).toLocaleDateString()}</span>
+                </div>
+                <div style={{ fontSize:13, color:T.cream, lineHeight:1.6, padding:"10px 12px", background:T.bg, borderRadius:8, marginBottom:8 }}>
+                  {r.posts?.body || "Post deleted"}
+                </div>
+                <div style={{ fontSize:11, color:T.creamFaint }}>
+                  Reported by {r.reporter?.email || "unknown"}
+                </div>
+              </div>
+              {r.status === "pending" && (
+                <div style={{ padding:"12px 20px", display:"flex", gap:10 }}>
+                  <button
+                    onClick={async () => {
+                      await supabase.from("reported_posts").update({ status:"dismissed" }).eq("id", r.id);
+                      setReports(prev => prev.map(x => x.id===r.id ? {...x, status:"dismissed"} : x));
+                      showToast("Report dismissed", T.tealHi);
+                    }}
+                    style={{ background:T.border, border:"none", borderRadius:7, padding:"7px 16px", fontSize:12, color:T.cream, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
+                    Dismiss
+                  </button>
+                  <button
+                    onClick={async () => {
+                      // Delete the post and mark report reviewed
+                      await supabase.from("posts").delete().eq("id", r.post_id);
+                      await supabase.from("reported_posts").update({ status:"reviewed" }).eq("id", r.id);
+                      setReports(prev => prev.map(x => x.id===r.id ? {...x, status:"reviewed"} : x));
+                      showToast("Post removed", "#E57373");
+                    }}
+                    style={{ background:T.redLo, border:`1px solid ${T.red}44`, borderRadius:7, padding:"7px 16px", fontSize:12, color:T.redHi, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontWeight:500 }}>
+                    Remove post
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {toast && (
         <div style={{ position:"fixed", bottom:24, left:"50%", transform:"translateX(-50%)", background:T.surface, border:`1px solid ${T.border}`, borderRadius:10, padding:"9px 18px", fontSize:13, color:T.cream, display:"flex", alignItems:"center", gap:8, zIndex:200, whiteSpace:"nowrap" }}>
