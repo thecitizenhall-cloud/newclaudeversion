@@ -449,33 +449,19 @@ function StepWelcome({ user, hood, onComplete }) {
 
   async function handleEnter() {
     setSaving(true);
-
     try {
-      // 1. Save to auth user metadata
       await supabase.auth.updateUser({
-        data: {
-          display_name:    user.name,
-          neighborhood:    hood.name,
-          neighborhood_id: hood.id,
-        },
+        data: { display_name:user.name, neighborhood:hood.name, neighborhood_id:hood.id },
       });
-
-      // 2. Update profiles table
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser) {
         await supabase.from("profiles").update({
-          display_name:    user.name,
-          neighborhood:    hood.name,
-          neighborhood_id: hood.id,
-          updated_at:      new Date().toISOString(),
+          display_name:user.name, neighborhood:hood.name,
+          neighborhood_id:hood.id, updated_at:new Date().toISOString(),
         }).eq("id", authUser.id);
       }
-    } catch(e) {
-      console.error("handleEnter error:", e);
-    }
-
+    } catch(e) { console.error("save error:", e); }
     setSaving(false);
-    // Explicitly call onComplete — don't rely on auth state change
     if (onComplete) onComplete();
   }
 
@@ -500,8 +486,12 @@ function StepWelcome({ user, hood, onComplete }) {
         </div>
         <label className="th-label" style={{ marginBottom:10, display:"block" }}>What to do next</label>
         <div className="next-steps">
-          {["Browse your neighborhood banter feed","See open civic issues in "+hood.name,"Ask the expert panel a question"].map((s,i) => (
-            <div key={s} className="next-step"><div className="next-step-num">{i+1}</div><span style={{ flex:1 }}>{s}</span><ArrowRight/></div>
+          {[
+            "Browse your neighborhood banter feed",
+            "See open civic issues in "+hood.name,
+            "Ask the expert panel a question",
+          ].map((label,i) => (
+            <div key={label} className="next-step" style={{ cursor:"default" }}><div className="next-step-num">{i+1}</div><span style={{ flex:1 }}>{label}</span></div>
           ))}
         </div>
         <button className="th-btn th-btn-primary" onClick={handleEnter} disabled={saving}>{saving ? "Setting up…" : "Open Townhall"}</button>
