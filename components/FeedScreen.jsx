@@ -293,21 +293,76 @@ function StatusPill({ status }) {
 }
 
 // ── Post Card ─────────────────────────────────────────────────────────────
+function FlagIcon({ color }) {
+  return <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 1v9M2 1h6l-1.5 3L8 7H2" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}
+
 function PostCard({ post, currentUserId, onVote, onEscalate, isNew }) {
-  const [esc, setEsc] = useState(false);
-  const a = av(post.author_id);
+  const [esc,      setEsc]      = useState(false);
+  const [reported, setReported] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const a    = av(post.author_id);
   const name = post.profiles?.display_name || "Resident";
   const hood = post.profiles?.neighborhood  || "Townhall";
+
   function handleEsc() { setEsc(true); setTimeout(() => onEscalate(post), 450); }
+
+  async function handleReport(reason) {
+    setShowMenu(false);
+    const { error } = await supabase.from("reported_posts").insert({
+      post_id:     post.id,
+      reporter_id: currentUserId,
+      reason,
+    });
+    if (!error || error.code === "23505") {
+      // 23505 = already reported — treat as success
+      setReported(true);
+    }
+  }
+
   return (
-    <div className={`th-post${esc?" escalating":""}${isNew?" new-post":""}`}>
+    <div className={`th-post${esc?" escalating":""}${isNew?" new-post":""}`}
+      style={{ position:"relative" }}
+      onMouseLeave={() => setShowMenu(false)}>
       <div className="th-post-meta">
         <div className="th-post-avatar" style={{ background:a.bg, color:a.color }}>{initials(name)}</div>
         <div>
           <div className="th-post-author">{name}{post.author_id===currentUserId&&<span style={{fontSize:10,color:T.amberHi,marginLeft:6}}>you</span>}</div>
           <div className="th-post-hood">{hood}</div>
         </div>
-        <div className="th-post-time">{timeAgo(post.created_at)}</div>
+        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6 }}>
+          <div className="th-post-time">{timeAgo(post.created_at)}</div>
+          {/* Report button — only show on other people's posts */}
+          {post.author_id !== currentUserId && (
+            <div style={{ position:"relative" }}>
+              <button
+                onClick={() => setShowMenu(m => !m)}
+                style={{ background:"transparent", border:"none", cursor:"pointer", padding:"2px 4px", color:reported ? T.amberHi : T.creamFaint, display:"flex", alignItems:"center", borderRadius:4, transition:"color 0.15s" }}
+                title={reported ? "Reported" : "Report post"}>
+                <FlagIcon color={reported ? T.amberHi : T.creamFaint}/>
+              </button>
+              {showMenu && !reported && (
+                <div style={{ position:"absolute", right:0, top:"100%", background:T.surface, border:`1px solid ${T.border}`, borderRadius:9, padding:"6px 0", zIndex:50, minWidth:180, boxShadow:"0 4px 16px rgba(0,0,0,0.4)" }}>
+                  <div style={{ padding:"4px 12px 6px", fontSize:10, color:T.creamFaint, fontWeight:500, textTransform:"uppercase", letterSpacing:"0.08em" }}>Report reason</div>
+                  {[
+                    { key:"inappropriate",  label:"Inappropriate content" },
+                    { key:"spam",           label:"Spam or misleading" },
+                    { key:"harassment",     label:"Harassment" },
+                    { key:"misinformation", label:"Misinformation" },
+                    { key:"other",          label:"Other" },
+                  ].map(r => (
+                    <div key={r.key} onClick={() => handleReport(r.key)}
+                      style={{ padding:"8px 14px", fontSize:13, color:T.creamDim, cursor:"pointer", transition:"all 0.15s" }}
+                      onMouseEnter={e => e.currentTarget.style.background = T.surfaceHi}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      {r.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       <div className="th-post-body">{post.body}</div>
       <div className="th-post-tags">
