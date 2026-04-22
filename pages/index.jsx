@@ -162,6 +162,7 @@ export default function Home() {
   const [user,         setUser]         = useState(null);
   const [neighborhood, setNeighborhood] = useState("Riverdale");
   const [isMobile,     setIsMobile]     = useState(false);
+  const [authError,    setAuthError]    = useState(null);
 
   useEffect(() => {
     // Step 1: mark as mounted — from this point all browser APIs are safe
@@ -183,7 +184,13 @@ export default function Home() {
     }
 
     // Step 4: auth check
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error("Auth error:", error);
+        setAuthError(error.message);
+        setScreen("error");
+        return;
+      }
       if (session) {
         setUser(session.user);
         setNeighborhood(session.user.user_metadata?.neighborhood || "Riverdale");
@@ -214,7 +221,13 @@ export default function Home() {
   async function handleSignOut() { await supabase.auth.signOut(); }
 
   function handleGateUnlock() {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error("Auth error:", error);
+        setAuthError(error.message);
+        setScreen("error");
+        return;
+      }
       if (session) {
         setUser(session.user);
         setNeighborhood(session.user.user_metadata?.neighborhood || "Riverdale");
@@ -230,6 +243,22 @@ export default function Home() {
 
   // All decisions below are client-only
   if (screen === "loading")  return <Spinner />;
+  if (screen === "error") return (
+    <div style={{ height:"100vh", background:"#0F0E0C", display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'DM Sans',sans-serif" }}>
+      <div style={{ background:"#1A1916", border:"1px solid #2C2A26", borderRadius:16, width:"100%", maxWidth:400, padding:"32px", textAlign:"center" }}>
+        <div style={{ fontSize:32, marginBottom:16 }}>⚠️</div>
+        <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:20, color:"#F2EDE4", marginBottom:8 }}>Something went wrong</div>
+        <div style={{ fontSize:13, color:"#9A9188", lineHeight:1.7, marginBottom:20 }}>
+          We couldn&apos;t connect to the server. This is usually temporary — check your connection and try again.
+        </div>
+        <button onClick={() => { setAuthError(null); setScreen("loading"); window.location.reload(); }}
+          style={{ width:"100%", background:"#D4922A", color:"#0F0E0C", border:"none", borderRadius:9, padding:12, fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:500, cursor:"pointer" }}>
+          Retry
+        </button>
+        {authError && <div style={{ fontSize:11, color:"#4A4640", marginTop:12 }}>{authError}</div>}
+      </div>
+    </div>
+  );
   if (screen === "gate")     return <GatePage onUnlock={handleGateUnlock} />;
   if (screen === "onboarding") return <OnboardingScreen onComplete={() => setScreen("feed")} />;
 
