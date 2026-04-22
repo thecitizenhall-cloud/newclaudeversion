@@ -480,7 +480,18 @@ export default function FeedScreen({ onNavigate }) {
       })
       .subscribe();
 
-    return () => { if (channelRef.current) channelRef.current.unsubscribe(); };
+    // Detect online/offline
+    function handleOnline()  { setIsOffline(false); loadPosts(null, null); loadIssues(); }
+    function handleOffline() { setIsOffline(true); }
+    window.addEventListener("online",  handleOnline);
+    window.addEventListener("offline", handleOffline);
+    setIsOffline(!navigator.onLine);
+
+    return () => {
+      if (channelRef.current) channelRef.current.unsubscribe();
+      window.removeEventListener("online",  handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
   }, []);
 
   async function loadPosts(user, hoodId) {
@@ -607,8 +618,28 @@ export default function FeedScreen({ onNavigate }) {
               <button className="th-post-btn" onClick={handlePost} disabled={!draft.trim()||posting}>{posting?"Posting…":"Post"}</button>
             </div>
           </div>
-          {loading&&<div className="th-loading"><div className="th-spinner"/>Loading…</div>}
-          {!loading&&filtered.length===0&&<div className="th-empty">No posts yet in {neighborhood}.<br/>Be the first to share something.</div>}
+          {/* Offline banner */}
+          {isOffline && (
+            <div style={{ margin:"12px 16px", padding:"10px 14px", background:"#2A1E08", border:"1px solid #8C5E14", borderRadius:9, fontSize:12, color:"#F0B84A", display:"flex", alignItems:"center", gap:8 }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v5M7 9.5v1" stroke="#F0B84A" strokeWidth="1.5" strokeLinecap="round"/><circle cx="7" cy="7" r="6" stroke="#F0B84A" strokeWidth="1.3"/></svg>
+              You&apos;re offline — showing cached posts. New posts will sync when you reconnect.
+            </div>
+          )}
+
+          {/* Load error */}
+          {loadError && !isOffline && (
+            <div style={{ margin:"12px 16px", padding:"14px 16px", background:"#2A0E0A", border:"1px solid #C0392B44", borderRadius:9 }}>
+              <div style={{ fontSize:13, color:"#E57373", fontWeight:500, marginBottom:4 }}>Couldn&apos;t load posts</div>
+              <div style={{ fontSize:12, color:"#9A9188", marginBottom:10, lineHeight:1.6 }}>There was a problem connecting to the server. This is usually temporary.</div>
+              <button onClick={() => { setLoadError(null); loadPosts(currentUser, null); }}
+                style={{ background:"#C0392B22", border:"1px solid #C0392B44", borderRadius:7, padding:"6px 14px", fontSize:12, color:"#E57373", cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
+                Try again
+              </button>
+            </div>
+          )}
+
+          {loading&&!loadError&&<div className="th-loading"><div className="th-spinner"/>Loading…</div>}
+          {!loading&&!loadError&&filtered.length===0&&<div className="th-empty">No posts yet in {neighborhood}.<br/>Be the first to share something.</div>}
           {!loading&&filtered.map(post=>(
             <PostCard key={post.id} post={post} currentUserId={currentUser?.id}
               onVote={handleVote} onEscalate={handleEscalate} isNew={newPostIds.includes(post.id)}/>
