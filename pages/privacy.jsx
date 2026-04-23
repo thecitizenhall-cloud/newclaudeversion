@@ -24,11 +24,11 @@ export default function Privacy() {
             title: "1. Information we collect",
             body: `We collect the following information when you use Townhall Café:
 
-• Email address — used for authentication and account communication
-• Display name — chosen by you during signup
-• Neighborhood selection — the neighborhood you choose during onboarding
-• Location signal — used once during onboarding to detect nearby neighborhoods, then discarded. Your exact coordinates are never stored.
-• Zero-knowledge residency proof — a cryptographic hash that proves neighborhood membership without revealing your address
+• Email address &#8212; used for authentication and account communication
+• Display name &#8212; chosen by you during signup
+• Neighborhood selection &#8212; the neighborhood you choose during onboarding
+• Location signal &#8212; used once during onboarding to detect nearby neighborhoods, then discarded. Your exact coordinates are never stored.
+• Zero-knowledge residency proof &#8212; a cryptographic hash that proves neighborhood membership without revealing your address
 • Posts, questions, and votes you submit to the platform
 • Device type and browser for technical support purposes`,
           },
@@ -55,7 +55,7 @@ export default function Privacy() {
           },
           {
             title: "4. Zero-knowledge residency proofs",
-            body: "Our residency verification uses zero-knowledge cryptography. When you select your neighborhood, a proof is generated on your device that confirms you are within the neighborhood boundary. Only the proof hash — not your coordinates — is stored on our servers. This means we can verify you are a resident without ever knowing your address.",
+            body: "Our residency verification uses zero-knowledge cryptography. When you select your neighborhood, a proof is generated on your device that confirms you are within the neighborhood boundary. Only the proof hash &#8212; not your coordinates &#8212; is stored on our servers. This means we can verify you are a resident without ever knowing your address.",
           },
           {
             title: "5. Information sharing",
@@ -74,7 +74,7 @@ We may share information in the following limited circumstances:
           },
           {
             title: "7. Security",
-            body: "We use industry-standard security measures including encrypted connections (HTTPS), row-level security on all database tables, and zero-knowledge proofs for residency verification. No system is completely secure — if you believe your account has been compromised, contact us immediately at hello@townhallcafe.org.",
+            body: "We use industry-standard security measures including encrypted connections (HTTPS), row-level security on all database tables, and zero-knowledge proofs for residency verification. No system is completely secure &#8212; if you believe your account has been compromised, contact us immediately at hello@townhallcafe.org.",
           },
           {
             title: "8. Children's privacy",
