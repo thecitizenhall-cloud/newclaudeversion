@@ -69,23 +69,6 @@ const css = `
     .th-zk-badge-mobile { display:flex;align-items:center;gap:4px; background:#0D2B1F;border:1px solid #1B4A35; border-radius:99px;padding:3px 8px; font-size:10px;color:${T.tealHi}; }
   }
 
-  /* ── Desktop sidebar ── */
-  .th-sidebar {
-    background:${T.surface};
-    border-right:1px solid ${T.border};
-    padding:16px 0;
-    overflow-y:auto;
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-  }
-  .th-sidebar-section { padding:4px 16px 2px; font-size:10px; font-weight:500; color:${T.creamFaint}; text-transform:uppercase; letter-spacing:0.1em; margin-top:12px; }
-  .th-nav-item { display:flex;align-items:center;gap:10px; padding:8px 16px;cursor:pointer; font-size:13px;color:${T.creamDim}; transition:all 0.15s;border-left:2px solid transparent; }
-  .th-nav-item:hover { color:${T.cream}; background:${T.surfaceHi}; }
-  .th-nav-item.active { color:${T.amber}; border-left-color:${T.amber}; background:${T.amberLo}; }
-  .th-nav-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
-  .th-nav-badge { margin-left:auto;background:${T.amberLo}; border:1px solid ${T.amberMid};border-radius:99px; padding:1px 7px;font-size:10px;color:${T.amberHi}; }
-
   /* ── Feed panel ── */
   .th-feed {
     overflow-y: auto;
@@ -610,7 +593,13 @@ export default function FeedScreen({ onNavigate }) {
               onKeyDown={e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))handlePost();}}
             />
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div className="th-tag-row">
+              {/* Tag chips only appear once user starts typing */}
+              <div className="th-tag-row" style={{
+                opacity: draft.trim() ? 1 : 0,
+                transform: draft.trim() ? "translateY(0)" : "translateY(4px)",
+                transition: "opacity 0.2s ease, transform 0.2s ease",
+                pointerEvents: draft.trim() ? "auto" : "none",
+              }}>
                 {Object.entries(TAGS).map(([tag,s])=>(
                   <div key={tag} className="th-tag-chip"
                     style={{background:draftTag===tag?s.bg:"transparent",color:draftTag===tag?s.color:T.creamFaint,border:`1px solid ${draftTag===tag?s.border:T.border}`}}
