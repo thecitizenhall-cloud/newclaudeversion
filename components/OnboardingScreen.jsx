@@ -212,6 +212,7 @@ function StepAccount({ onNext }) {
     <>
       <div className="th-header">
         <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall Café</span></div>
+        <div style={{ fontSize:12, color:T.amberHi, fontStyle:"italic", marginBottom:12 }}>Where you can have a coffee break with the mayor.</div>
         <div className="th-progress"><div className="th-progress-dot active"/><div className="th-progress-dot"/><div className="th-progress-dot"/></div>
         <h1 className="th-step-title">{mode === "signup" ? <>Create your <em>account</em></> : <>Welcome <em>back</em></>}</h1>
         <p className="th-step-sub">{mode === "signup" ? "Your civic identity — pseudonymous by default, verified by place." : "Sign in to continue to your neighborhood."}</p>
@@ -290,7 +291,7 @@ function StepAccount({ onNext }) {
         )}
 
         <div className="th-terms">
-          By continuing you agree to Townhall Café&apos;s <a>Terms of Use</a> and <a>Privacy Policy</a>.<br/>
+          By continuing you agree to Townhall Café&apos;s <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.<br/>
           Your address is <strong style={{ color:"#F2EDE4" }}>never stored</strong>.
         </div>
       </div>
