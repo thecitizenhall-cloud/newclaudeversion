@@ -301,90 +301,231 @@ function StepAccount({ onNext }) {
 
 // ── Step 2: Neighborhood ──────────────────────────────────────────────────
 function StepNeighborhood({ onNext }) {
-  const [hoods,     setHoods]     = useState([]);
-  const [selected,  setSelected]  = useState(null);
-  const [loading,   setLoading]   = useState(true);
-  const [locating,  setLocating]  = useState(true);
-  const [coords,    setCoords]    = useState(null);
-  const [error,     setError]     = useState("");
+  const [phase,        setPhase]        = useState("detecting"); // detecting | city | neighborhood | manual
+  const [coords,       setCoords]       = useState(null);
+  const [cities,       setCities]       = useState([]);
+  const [selectedCity, setSelectedCity] = useState(null);
+  const [hoods,        setHoods]        = useState([]);
+  const [selectedHood, setSelectedHood] = useState(null);
+  const [citySearch,   setCitySearch]   = useState("");
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState("");
+
+  // Haversine distance in miles
+  function distanceMiles(lat1, lng1, lat2, lng2) {
+    const R = 3959;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
 
   useEffect(() => {
-    // Load neighborhoods from DB
-    supabase.from("neighborhoods").select("id, name, slug").order("name").then(({ data }) => {
-      setHoods(data || []);
-      setLoading(false);
-    });
-
-    // Try to get GPS coords for display (not required)
-    if (typeof navigator !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          setCoords({ lat: pos.coords.latitude.toFixed(4), lng: pos.coords.longitude.toFixed(4) });
-          setLocating(false);
-        },
-        () => setLocating(false), // fail silently
-        { timeout: 3000 }
-      );
-    } else {
-      setLocating(false);
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setPhase("manual");
+      return;
     }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setCoords({ lat: latitude, lng: longitude });
 
-    // Fallback: stop locating after 3s regardless
-    const t = setTimeout(() => setLocating(false), 3000);
-    return () => clearTimeout(t);
+        // Find nearby cities from DB
+        const { data: allCities } = await supabase
+          .from("cities")
+          .select("id, name, state, lat, lng");
+
+        if (!allCities?.length) { setPhase("manual"); return; }
+
+        // Sort by distance and take closest 10
+        const withDist = allCities.map(c => ({
+          ...c,
+          dist: distanceMiles(latitude, longitude, c.lat, c.lng),
+        })).sort((a,b) => a.dist - b.dist);
+
+        const nearby = withDist.slice(0, 10);
+        setCities(nearby);
+
+        // Auto-select the closest city
+        const closest = nearby[0];
+        setSelectedCity(closest);
+        await loadNeighborhoodsForCity(closest);
+      },
+      () => setPhase("manual"), // User denied or error
+      { timeout:5000, maximumAge:60000 }
+    );
   }, []);
 
-  const selectedHood = hoods.find(h => h.id === selected);
+  async function loadNeighborhoodsForCity(city) {
+    setLoading(true);
+    setSelectedHood(null);
 
+    // Load neighborhoods linked to this city
+    const { data: linked } = await supabase
+      .from("neighborhoods")
+      .select("id, name, center_lat, center_lng")
+      .eq("city_id", city.id)
+      .order("name");
+
+    if (linked?.length) {
+      setHoods(linked);
+      // Auto-select closest neighborhood if we have coords
+      if (coords) {
+        const closest = linked.reduce((a, b) =>
+          distanceMiles(coords.lat, coords.lng, a.center_lat || city.lat, a.center_lng || city.lng) <
+          distanceMiles(coords.lat, coords.lng, b.center_lat || city.lat, b.center_lng || city.lng) ? a : b
+        );
+        setSelectedHood(closest);
+      }
+      setPhase("neighborhood");
+    } else {
+      // No neighborhoods for this city yet — show all neighborhoods
+      const { data: allHoods } = await supabase
+        .from("neighborhoods")
+        .select("id, name")
+        .order("name");
+      setHoods(allHoods || []);
+      setPhase("neighborhood");
+    }
+    setLoading(false);
+  }
+
+  async function searchCities(query) {
+    setCitySearch(query);
+    if (query.length < 2) { setCities([]); return; }
+    const { data } = await supabase
+      .from("cities")
+      .select("id, name, state, lat, lng")
+      .ilike("name", `%${query}%`)
+      .order("name")
+      .limit(20);
+    setCities(data || []);
+  }
+
+  // ── Detecting phase ────────────────────────────────────────────────────
+  if (phase === "detecting") return (
+    <>
+      <div className="th-header">
+        <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall Café</span></div>
+        <div className="th-progress"><div className="th-progress-dot done"/><div className="th-progress-dot active"/><div className="th-progress-dot"/></div>
+        <h1 className="th-step-title">Finding your <em>city</em></h1>
+        <p className="th-step-sub">Allow location access to automatically detect your neighborhood.</p>
+      </div>
+      <div className="th-body">
+        <div className="geo-map">
+          <div className="geo-grid"/>
+          <div className="geo-ring"/><div className="geo-ring"/><div className="geo-ring"/>
+          <div className="geo-dot"/>
+          <div className="geo-label"><span style={{ animation:"pulse 1s ease infinite", display:"inline-block" }}>Detecting location…</span></div>
+        </div>
+        <button className="th-btn th-btn-ghost" onClick={() => setPhase("manual")}>
+          Enter my city manually instead
+        </button>
+      </div>
+    </>
+  );
+
+  // ── Manual city search ─────────────────────────────────────────────────
+  if (phase === "manual") return (
+    <>
+      <div className="th-header">
+        <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall Café</span></div>
+        <div className="th-progress"><div className="th-progress-dot done"/><div className="th-progress-dot active"/><div className="th-progress-dot"/></div>
+        <h1 className="th-step-title">Find your <em>city</em></h1>
+        <p className="th-step-sub">Search for your city across all 50 states.</p>
+      </div>
+      <div className="th-body">
+        <input
+          className="th-input"
+          placeholder="Search city name…"
+          value={citySearch}
+          onChange={e => searchCities(e.target.value)}
+          style={{ marginBottom:12 }}
+          autoFocus
+        />
+        {cities.length > 0 && (
+          <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:16, maxHeight:280, overflowY:"auto" }}>
+            {cities.map(city => (
+              <div key={city.id}
+                onClick={async () => { setSelectedCity(city); await loadNeighborhoodsForCity(city); }}
+                style={{ padding:"10px 14px", background:T.bg, border:`1px solid ${T.border}`, borderRadius:8, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", transition:"border-color 0.15s" }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = T.borderHi}
+                onMouseLeave={e => e.currentTarget.style.borderColor = T.border}>
+                <span style={{ fontSize:13, color:T.cream }}>{city.name}</span>
+                <span style={{ fontSize:11, color:T.creamDim }}>{city.state}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {citySearch.length >= 2 && cities.length === 0 && (
+          <div style={{ fontSize:12, color:T.creamFaint, textAlign:"center", padding:"20px 0" }}>
+            No cities found for &quot;{citySearch}&quot;
+          </div>
+        )}
+        {loading && <div className="th-loading"><div className="th-spinner"/>Loading neighborhoods…</div>}
+      </div>
+    </>
+  );
+
+  // ── City confirmed + neighborhood selection ────────────────────────────
   return (
     <>
       <div className="th-header">
         <div className="th-logo"><div className="th-logo-mark"><LogoMark /></div><span className="th-logo-name">Townhall Café</span></div>
         <div className="th-progress"><div className="th-progress-dot done"/><div className="th-progress-dot active"/><div className="th-progress-dot"/></div>
         <h1 className="th-step-title">Your <em>neighborhood</em></h1>
-        <p className="th-step-sub">Choose your neighborhood. Your exact location is never stored.</p>
+        <p className="th-step-sub">
+          {coords
+            ? `We found your location near ${selectedCity?.name}, ${selectedCity?.state}.`
+            : `Showing neighborhoods in ${selectedCity?.name}, ${selectedCity?.state}.`}
+        </p>
       </div>
       <div className="th-body">
-        <div className="geo-map">
-          <div className="geo-grid"/>
-          {locating
-            ? (<><div className="geo-ring"/><div className="geo-ring"/><div className="geo-ring"/><div className="geo-dot"/></>)
-            : <div className="geo-dot" style={{ animation:"none" }}/>}
-          <div className="geo-label">
-            {locating
-              ? <span style={{ animation:"pulse 1s ease infinite", display:"inline-block" }}>Locating you…</span>
-              : coords ? `${coords.lat}° N, ${coords.lng}° W` : "Location optional"}
+        {/* City pill + change link */}
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+          <div style={{ padding:"4px 12px", background:T.amberLo, border:`1px solid ${T.amberMid}`, borderRadius:99, fontSize:12, color:T.amberHi }}>
+            📍 {selectedCity?.name}, {selectedCity?.state}
           </div>
+          <button onClick={() => { setPhase("manual"); setCitySearch(""); setCities([]); }}
+            style={{ background:"transparent", border:"none", fontSize:12, color:T.creamDim, cursor:"pointer", textDecoration:"underline", fontFamily:"'DM Sans',sans-serif" }}>
+            Change city
+          </button>
         </div>
 
         {loading ? (
-          <div style={{ textAlign:"center", padding:"20px 0", color:T.creamDim, fontSize:13 }}>
-            <span style={{ display:"inline-block", width:14, height:14, border:`2px solid ${T.border}`, borderTopColor:T.amber, borderRadius:"50%", animation:"spin 0.8s linear infinite", marginRight:8, verticalAlign:"middle" }}/>
-            Loading neighborhoods…
-          </div>
+          <div className="th-loading"><div className="th-spinner"/>Loading neighborhoods…</div>
         ) : (
           <>
             <label className="th-label" style={{ marginBottom:10, display:"block" }}>
-              {hoods.length > 0 ? "Select your neighborhood" : "No neighborhoods found"}
+              Select your neighborhood
+              {coords && selectedHood && <span style={{ color:T.tealHi, marginLeft:8, fontWeight:400 }}>— closest match auto-selected</span>}
             </label>
             <div className="hood-grid">
               {hoods.map(h => (
-                <div key={h.id} className={`hood-item${selected===h.id?" selected":""}`} onClick={() => setSelected(h.id)}>
-                  <div><div className="hood-name">{h.name}</div></div>
-                  <div className="hood-check">{selected===h.id && <CheckIcon color={T.bg} size={11}/>}</div>
+                <div key={h.id} className={`hood-item${selectedHood?.id===h.id?" selected":""}`} onClick={() => setSelectedHood(h)}>
+                  <div className="hood-name">{h.name}</div>
+                  <div className="hood-check">{selectedHood?.id===h.id && <CheckIcon color={T.bg} size={11}/>}</div>
                 </div>
               ))}
             </div>
+            {hoods.length === 0 && (
+              <div style={{ fontSize:13, color:T.creamFaint, textAlign:"center", padding:"20px 0", lineHeight:1.7 }}>
+                No neighborhoods in {selectedCity?.name} yet.<br/>
+                <span style={{ fontSize:12 }}>You can still join — select any neighborhood below or create one.</span>
+              </div>
+            )}
           </>
         )}
 
         {error && <div style={{ fontSize:12, color:"#E57373", marginBottom:10 }}>{error}</div>}
 
-        <button className="th-btn th-btn-primary" disabled={!selected || loading}
-          onClick={() => onNext({ hood: { id: selectedHood.id, name: selectedHood.name } })}>
+        <button className="th-btn th-btn-primary"
+          disabled={!selectedHood || loading}
+          onClick={() => onNext({ hood: { id:selectedHood.id, name:selectedHood.name } })}>
           Continue →
         </button>
-        <button className="th-btn th-btn-ghost" onClick={() => setError("Neighborhood creation coming soon — contact us to add yours.")}>
+        <button className="th-btn th-btn-ghost"
+          onClick={() => setError("Neighborhood creation coming soon — contact us to add yours.")}>
           I don&apos;t see my neighborhood
         </button>
       </div>
@@ -392,7 +533,6 @@ function StepNeighborhood({ onNext }) {
   );
 }
 
-// ── Step 3: ZK Proof ──────────────────────────────────────────────────────
 function StepZK({ hood, onNext }) {
   const [phase, setPhase]     = useState("intro");
   const [hash, setHash]       = useState("");
