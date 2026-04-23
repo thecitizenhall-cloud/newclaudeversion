@@ -9,6 +9,7 @@ const OnboardingScreen    = dynamic(() => import("../components/OnboardingScreen
 const FeedScreen          = dynamic(() => import("../components/FeedScreen"),          { ssr:false });
 const ExpertScreen        = dynamic(() => import("../components/ExpertScreen"),        { ssr:false });
 const NotificationsScreen = dynamic(() => import("../components/NotificationsScreen"), { ssr:false });
+const ProfileScreen       = dynamic(() => import("../components/ProfileScreen"),       { ssr:false });
 
 // Spinner uses no browser APIs — safe to render on server and client identically
 function Spinner() {
@@ -72,7 +73,8 @@ function Sidebar({ screen, navigate, userInit, neighborhood, onSignOut }) {
     { key:"feed",   label:"Feed",   sub:"Banter & posts",  color:"#D4922A" },
     { key:"civic",  label:"Civic",  sub:"Issues & votes",  color:"#378ADD" },
     { key:"expert", label:"Expert", sub:"Q&A panel",       color:"#7F77DD" },
-    { key:"alerts", label:"Alerts", sub:"Notifications",   color:"#1D9E75" },
+    { key:"alerts",   label:"Alerts",   sub:"Notifications",   color:"#1D9E75" },
+    { key:"profile",  label:"Profile",  sub:"Account & trust", color:"#D4922A" },
   ];
   return (
     <div style={{ background:"#1A1916", borderRight:"1px solid #2C2A26", display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}>
@@ -106,13 +108,13 @@ function Sidebar({ screen, navigate, userInit, neighborhood, onSignOut }) {
         })}
       </nav>
       <div style={{ padding:"12px 10px", borderTop:"1px solid #2C2A26", flexShrink:0 }}>
-        <div onClick={onSignOut} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", borderRadius:9, cursor:"pointer" }}>
+        <div onClick={() => navigate("profile")} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", borderRadius:9, cursor:"pointer" }}>
           <div style={{ width:32, height:32, borderRadius:8, background:"#2A1E08", border:"1px solid #8C5E14", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Serif Display',serif", fontSize:12, color:"#F0B84A", flexShrink:0 }}>
             {userInit}
           </div>
           <div>
             <div style={{ fontSize:12, color:"#F2EDE4", fontWeight:500 }}>{neighborhood}</div>
-            <div style={{ fontSize:10, color:"#9A9188", marginTop:1 }}>Tap to sign out</div>
+            <div style={{ fontSize:10, color:"#9A9188", marginTop:1 }}>Tap to view profile</div>
           </div>
         </div>
       </div>
@@ -125,7 +127,8 @@ function BottomTabs({ screen, navigate }) {
     { key:"feed",   label:"Feed",   color:"#D4922A" },
     { key:"civic",  label:"Civic",  color:"#378ADD" },
     { key:"expert", label:"Expert", color:"#7F77DD" },
-    { key:"alerts", label:"Alerts", color:"#1D9E75" },
+    { key:"alerts",   label:"Alerts",   color:"#1D9E75" },
+    { key:"profile",  label:"Profile",  color:"#D4922A" },
   ];
   return (
     <div style={{ display:"flex", background:"#1A1916", borderTop:"1px solid #2C2A26", height:60, flexShrink:0 }}>
@@ -272,7 +275,8 @@ export default function Home() {
       {screen === "feed"   && <FeedScreen          onNavigate={navigate}/>}
       {screen === "civic"  && <FeedScreen          onNavigate={navigate} initialView="civic"/>}
       {screen === "expert" && <ExpertScreen        onNavigate={navigate}/>}
-      {screen === "alerts" && <NotificationsScreen onNavigate={navigate}/>}
+      {screen === "alerts"  && <NotificationsScreen onNavigate={navigate}/>}
+      {screen === "profile" && <ProfileScreen onNavigate={navigate} onSignOut={handleSignOut}/>}
     </>
   );
 
