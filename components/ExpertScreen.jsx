@@ -376,34 +376,114 @@ function ApplyPanel({onClose, onSuccess}){
   );
 }
 // ── Trust Panel ───────────────────────────────────────────────────────────
-function TrustPanel({profile}){
-  const score=profile?.trust_score||0;
-  const tier=profile?.trust_tier||"resident";
-  const tierIdx=TIERS.findIndex(t=>t.key===tier);
-  const nextTier=TIERS[tierIdx+1];
-  return(
+function TrustPanel({ profile, questions }) {
+  const score    = profile?.trust_score || 0;
+  const tier     = profile?.trust_tier  || "resident";
+  const tierIdx  = TIERS.findIndex(t => t.key === tier);
+  const nextTier = TIERS[tierIdx + 1];
+  const isExpert = profile?.is_expert;
+
+  // Build top experts leaderboard from answered questions
+  const expertMap = {};
+  (questions || []).forEach(q => {
+    (q.expert_answers || []).forEach(a => {
+      const id   = a.expert_id;
+      const name = a.profiles?.display_name || "Expert";
+      const org  = a.profiles?.expert_org   || "Verified expert";
+      if (!expertMap[id]) expertMap[id] = { id, name, org, answers:0, helpful:0 };
+      expertMap[id].answers++;
+      expertMap[id].helpful += (a.helpful_count || 0);
+    });
+  });
+  const topExperts = Object.values(expertMap)
+    .sort((a, b) => b.answers - a.answers)
+    .slice(0, 5);
+
+  const av = (id) => {
+    const colors = [
+      { bg:"#2A1E08", color:"#F0B84A" }, { bg:"#0A2A1E", color:"#4CAF80" },
+      { bg:"#1A1835", color:"#AFA9EC" }, { bg:"#0D1E35", color:"#85B7EB" },
+      { bg:"#2A0E0A", color:"#E57373" },
+    ];
+    return colors[(id ? id.charCodeAt(0) : 0) % colors.length];
+  };
+
+  return (
     <div className="trust-panel">
-      <div className="trust-header"><div className="trust-title">Your reputation</div><div className="trust-sub">ZK verified resident</div></div>
+      <div className="trust-header">
+        <div className="trust-title">Expert panel</div>
+        <div className="trust-sub">{topExperts.length} active experts</div>
+      </div>
       <div className="trust-body">
-        <ScoreRing score={score}/>
-        {nextTier&&<div style={{textAlign:"center",fontSize:12,color:T.creamDim,marginTop:-8}}>{nextTier.pts-score} pts to <span style={{color:nextTier.dot,fontWeight:500}}>{nextTier.label}</span></div>}
+
+        {/* Top experts leaderboard */}
         <div>
-          <div className="section-label">Trust ladder</div>
-          <div className="tier-ladder">
-            {TIERS.map((t,i)=>{
-              const isCurrent=t.key===tier, isLocked=i>tierIdx;
-              return(
-                <div key={t.key} className={`tier-row${isCurrent?" current":isLocked?" locked":""}`}>
-                  <div className="tier-dot" style={{background:t.dot}}/>
-                  <div><div className="tier-name" style={{color:t.color}}>{t.label}</div></div>
-                  <div className="tier-req">{t.req}</div>
-                  {isCurrent&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:99,background:T.amberLo,color:T.amberHi,border:`1px solid ${T.amberMid}`}}>Current</span>}
-                  {!isLocked&&!isCurrent&&<CheckIcon color={T.tealHi} size={12}/>}
-                </div>
-              );
-            })}
+          <div className="section-label">Most active this week</div>
+          {topExperts.length === 0 ? (
+            <div style={{ fontSize:12, color:T.creamFaint, lineHeight:1.7, padding:"8px 0" }}>
+              No experts have answered yet.<br/>
+              Be the first to apply and answer.
+            </div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {topExperts.map((expert, i) => {
+                const a = av(expert.id);
+                return (
+                  <div key={expert.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 10px", background:T.bg, border:`1px solid ${T.border}`, borderRadius:9 }}>
+                    <div style={{ width:10, height:10, borderRadius:"50%", background: i===0?T.amberHi:i===1?T.creamDim:"#4A4640", flexShrink:0, fontSize:9, display:"flex", alignItems:"center", justifyContent:"center", color:T.bg, fontWeight:600 }}/>
+                    <div style={{ width:30, height:30, borderRadius:7, background:a.bg, color:a.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:500, flexShrink:0 }}>
+                      {expert.name.slice(0,2).toUpperCase()}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12, color:T.cream, fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{expert.name}</div>
+                      <div style={{ fontSize:10, color:T.creamDim, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{expert.org}</div>
+                    </div>
+                    <div style={{ textAlign:"right", flexShrink:0 }}>
+                      <div style={{ fontSize:13, fontFamily:"'DM Serif Display',serif", color:T.cream }}>{expert.answers}</div>
+                      <div style={{ fontSize:9, color:T.creamFaint }}>answers</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div style={{ height:1, background:T.border, margin:"4px 0" }}/>
+
+        {/* Your standing — relevant to everyone */}
+        <div>
+          <div className="section-label">Your standing</div>
+          <div style={{ display:"flex", alignItems:"center", gap:14, padding:"10px 12px", background:T.bg, border:`1px solid ${T.border}`, borderRadius:9, marginBottom:8 }}>
+            <ScoreRing score={score}/>
+            <div>
+              <div style={{ fontSize:13, fontWeight:500, color: TIERS[tierIdx]?.color || T.creamDim }}>{TIERS[tierIdx]?.label || "Resident"}</div>
+              {nextTier
+                ? <div style={{ fontSize:11, color:T.creamDim, marginTop:3 }}>{nextTier.pts - score} pts to <span style={{ color:nextTier.dot }}>{nextTier.label}</span></div>
+                : <div style={{ fontSize:11, color:T.tealHi, marginTop:3 }}>Maximum tier</div>}
+              {isExpert && <div style={{ fontSize:10, marginTop:5, background:T.purpleLo, border:`1px solid ${T.purpleMid}`, borderRadius:99, padding:"2px 8px", color:T.purpleHi, display:"inline-block" }}>✓ Verified expert</div>}
+            </div>
+          </div>
+
+          {/* Apply as expert prompt for non-experts */}
+          {!isExpert && (
+            <div style={{ padding:"10px 12px", background:T.purpleLo, border:`1px solid ${T.purpleMid}44`, borderRadius:9, fontSize:12, color:T.purpleHi, lineHeight:1.6 }}>
+              Are you a professional in any of these domains?{" "}
+              <span style={{ color:T.cream, fontWeight:500 }}>Apply as a verified expert</span>{" "}
+              to answer questions and earn trust points.
+            </div>
+          )}
+
+          {/* View full profile link */}
+          <div style={{ marginTop:10, textAlign:"center" }}>
+            <span style={{ fontSize:11, color:T.creamDim, cursor:"pointer", textDecoration:"underline" }}
+              onClick={() => onNavigate && onNavigate("profile")}>
+              View full profile →
+            </span>
           </div>
         </div>
+
       </div>
     </div>
   );
@@ -672,7 +752,7 @@ export default function ExpertScreen({ onNavigate }){
         </div>
 
         {/* Right: trust panel — hidden on mobile */}
-        <TrustPanel profile={profile}/>
+        <TrustPanel profile={profile} questions={questions}/>
 
       </div>
 
