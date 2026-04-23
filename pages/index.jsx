@@ -46,7 +46,8 @@ function GatePage({ onUnlock }) {
   return (
     <div style={{ minHeight:"100vh", background:"#0F0E0C", display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'DM Sans',sans-serif" }}>
       <div style={{ background:"#1A1916", border:"1px solid #2C2A26", borderRadius:16, width:"100%", maxWidth:400, padding:"36px 32px", textAlign:"center" }}>
-        <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:28, color:"#F2EDE4", marginBottom:8 }}>Townhall Café</div>
+        <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:28, color:"#F2EDE4", marginBottom:6 }}>Townhall Café</div>
+        <div style={{ fontSize:13, color:"#D4922A", fontStyle:"italic", marginBottom:12 }}>Where you can have a coffee break with the mayor.</div>
         <div style={{ fontSize:13, color:"#9A9188", marginBottom:28, lineHeight:1.7 }}>
           We&apos;re getting ready.<br/>Enter your access code for an early look.
         </div>
