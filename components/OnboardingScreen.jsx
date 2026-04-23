@@ -360,34 +360,73 @@ function StepNeighborhood({ onNext }) {
     setLoading(true);
     setSelectedHood(null);
 
-    // Load neighborhoods linked to this city
-    const { data: linked } = await supabase
+    // First check if we already have neighborhoods for this city in DB
+    const { data: existing } = await supabase
       .from("neighborhoods")
       .select("id, name, center_lat, center_lng")
       .eq("city_id", city.id)
       .order("name");
 
-    if (linked?.length) {
-      setHoods(linked);
-      // Auto-select closest neighborhood if we have coords
-      if (coords) {
-        const closest = linked.reduce((a, b) =>
-          distanceMiles(coords.lat, coords.lng, a.center_lat || city.lat, a.center_lng || city.lng) <
-          distanceMiles(coords.lat, coords.lng, b.center_lat || city.lat, b.center_lng || city.lng) ? a : b
-        );
-        setSelectedHood(closest);
-      }
+    if (existing?.length) {
+      // Use cached neighborhoods from DB
+      setHoods(existing);
+      autoSelectClosest(existing, city);
       setPhase("neighborhood");
-    } else {
-      // No neighborhoods for this city yet — show all neighborhoods
-      const { data: allHoods } = await supabase
-        .from("neighborhoods")
-        .select("id, name")
-        .order("name");
-      setHoods(allHoods || []);
-      setPhase("neighborhood");
+      setLoading(false);
+      return;
     }
+
+    // No cached neighborhoods — query OpenStreetMap Overpass API
+    try {
+      const res = await fetch(
+        `/api/neighborhoods-lookup?city=${encodeURIComponent(city.name)}&state=${city.state}&lat=${city.lat}&lng=${city.lng}`
+      );
+      const data = await res.json();
+
+      if (data.neighborhoods?.length) {
+        // Save to Supabase so future users don't need to re-query
+        const toInsert = data.neighborhoods.map(n => ({
+          name:       n.name,
+          slug:       n.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          city_id:    city.id,
+          center_lat: n.lat,
+          center_lng: n.lng,
+        }));
+
+        const { data: saved } = await supabase
+          .from("neighborhoods")
+          .upsert(toInsert, { onConflict:"slug,city_id", ignoreDuplicates:true })
+          .select("id, name, center_lat, center_lng");
+
+        const finalHoods = saved?.length ? saved : data.neighborhoods.map((n, i) => ({
+          id:         `temp-${i}`,
+          name:       n.name,
+          center_lat: n.lat,
+          center_lng: n.lng,
+        }));
+
+        setHoods(finalHoods);
+        autoSelectClosest(finalHoods, city);
+      } else {
+        setHoods([]);
+      }
+    } catch (err) {
+      console.error("Neighborhood lookup error:", err);
+      setHoods([]);
+    }
+
+    setPhase("neighborhood");
     setLoading(false);
+  }
+
+  function autoSelectClosest(hoods, city) {
+    if (!coords || !hoods.length) return;
+    const closest = hoods.reduce((a, b) => {
+      const distA = distanceMiles(coords.lat, coords.lng, a.center_lat || city.lat, a.center_lng || city.lng);
+      const distB = distanceMiles(coords.lat, coords.lng, b.center_lat || city.lat, b.center_lng || city.lng);
+      return distA < distB ? a : b;
+    });
+    setSelectedHood(closest);
   }
 
   async function searchCities(query) {
