@@ -45,7 +45,7 @@ export default function Terms() {
       body: "For questions about these Terms of Service contact us at hello@townhallcafe.org.",
     },
   ];
-
+ 
   return (
     <div style={{ background:"#0F0E0C", minHeight:"100vh", padding:"60px 24px", fontFamily:"sans-serif", color:"#F2EDE4" }}>
       <div style={{ maxWidth:680, margin:"0 auto" }}>
