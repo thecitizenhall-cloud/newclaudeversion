@@ -14,7 +14,7 @@ export default function Terms() {
         {[
           {
             title: "1. Acceptance of terms",
-            body: "By accessing or using Townhall Café ("the Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, do not use the Service. We reserve the right to update these terms at any time &#8212; continued use of the Service constitutes acceptance of any changes.",
+            body: "By accessing or using Townhall Café ("the Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, do not use the Service. We reserve the right to update these terms at any time  -  continued use of the Service constitutes acceptance of any changes.",
           },
           {
             title: "2. Description of service",
