@@ -408,10 +408,66 @@ function StepNeighborhood({ onNext }) {
         setHoods(finalHoods);
         autoSelectClosest(finalHoods, city);
       } else {
-        setHoods([]);
+        // Overpass/fallback returned nothing — try Nominatim
+        await loadNeighborhoodsFromNominatim(city);
+        return; // loadNeighborhoodsFromNominatim handles setPhase/setLoading
       }
     } catch (err) {
       console.error("Neighborhood lookup error:", err);
+      // Still try Nominatim on error
+      await loadNeighborhoodsFromNominatim(city);
+      return;
+    }
+
+    setPhase("neighborhood");
+    setLoading(false);
+  }
+
+  async function loadNeighborhoodsFromNominatim(city) {
+    try {
+      // Query Nominatim for suburbs/neighbourhoods within this city
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city.name + " " + city.state + " USA")}&format=json&addressdetails=1&limit=50&featuretype=settlement`;
+      const res = await fetch(url, {
+        headers: { "User-Agent": "TownhallCafe/1.0 (hello@townhallcafe.org)" }
+      });
+      const results = await res.json();
+
+      // Filter to neighborhood-level results near the city
+      const nominees = results
+        .filter(r => ["suburb","neighbourhood","quarter","village","hamlet"].includes(r.type))
+        .map(r => ({
+          name: r.address?.suburb || r.address?.neighbourhood || r.name,
+          lat:  parseFloat(r.lat),
+          lng:  parseFloat(r.lon),
+        }))
+        .filter(n => n.name && !isNaN(n.lat));
+
+      if (nominees.length && city.id && !city.id.startsWith("nominatim-")) {
+        // Save to DB for future users
+        const toInsert = nominees.map(n => ({
+          name:       n.name,
+          slug:       n.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          city_id:    city.id,
+          center_lat: n.lat,
+          center_lng: n.lng,
+        }));
+
+        const { data: saved } = await supabase
+          .from("neighborhoods")
+          .upsert(toInsert, { onConflict:"slug,city_id", ignoreDuplicates:true })
+          .select("id, name, center_lat, center_lng");
+
+        const finalHoods = saved?.length ? saved : nominees.map((n, i) => ({
+          id: `nominatim-${i}`, name: n.name, center_lat: n.lat, center_lng: n.lng,
+        }));
+
+        setHoods(finalHoods);
+        autoSelectClosest(finalHoods, city);
+      } else {
+        setHoods([]);
+      }
+    } catch (err) {
+      console.error("Nominatim neighborhood error:", err);
       setHoods([]);
     }
 
@@ -432,13 +488,69 @@ function StepNeighborhood({ onNext }) {
   async function searchCities(query) {
     setCitySearch(query);
     if (query.length < 2) { setCities([]); return; }
-    const { data } = await supabase
+
+    // First search our database
+    const { data: dbCities } = await supabase
       .from("cities")
       .select("id, name, state, lat, lng")
       .ilike("name", `%${query}%`)
       .order("name")
       .limit(20);
-    setCities(data || []);
+
+    if (dbCities?.length) {
+      setCities(dbCities);
+      return;
+    }
+
+    // Not in DB — query Nominatim to find it
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ", USA")}&format=json&addressdetails=1&limit=10&featuretype=city`;
+      const res = await fetch(url, {
+        headers: { "User-Agent": "TownhallCafe/1.0 (hello@townhallcafe.org)" }
+      });
+      const results = await res.json();
+
+      // Filter to US cities/towns only
+      const nominees = results
+        .filter(r => ["city","town","village","municipality"].includes(r.type) || r.addresstype === "city")
+        .map(r => ({
+          nominatim_id: r.place_id,
+          name:  r.address?.city || r.address?.town || r.address?.village || r.name,
+          state: r.address?.state_code || r.address?.state || "",
+          lat:   parseFloat(r.lat),
+          lng:   parseFloat(r.lon),
+          fromNominatim: true,
+        }))
+        .filter(r => r.name && r.state);
+
+      setCities(nominees);
+    } catch (err) {
+      console.log("Nominatim search error:", err.message);
+      setCities([]);
+    }
+  }
+
+  async function handleCitySelect(city) {
+    // If city came from Nominatim, save it to our DB first
+    if (city.fromNominatim) {
+      const { data: saved } = await supabase
+        .from("cities")
+        .insert({
+          name:  city.name,
+          state: city.state,
+          lat:   city.lat,
+          lng:   city.lng,
+        })
+        .select()
+        .single();
+      // Use the saved row (with real UUID) or fall back to nominatim data
+      const finalCity = saved || { ...city, id: `nominatim-${city.nominatim_id}` };
+      setSelectedCity(finalCity);
+      await loadNeighborhoodsForCity(finalCity);
+    } else {
+      setSelectedCity(city);
+      await loadNeighborhoodsForCity(city);
+    }
   }
 
   // ── Detecting phase ────────────────────────────────────────────────────
@@ -486,7 +598,7 @@ function StepNeighborhood({ onNext }) {
           <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:16, maxHeight:280, overflowY:"auto" }}>
             {cities.map(city => (
               <div key={city.id}
-                onClick={async () => { setSelectedCity(city); await loadNeighborhoodsForCity(city); }}
+                onClick={() => handleCitySelect(city)}
                 style={{ padding:"10px 14px", background:T.bg, border:`1px solid ${T.border}`, borderRadius:8, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", transition:"border-color 0.15s" }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = T.borderHi}
                 onMouseLeave={e => e.currentTarget.style.borderColor = T.border}>
@@ -497,8 +609,9 @@ function StepNeighborhood({ onNext }) {
           </div>
         )}
         {citySearch.length >= 2 && cities.length === 0 && (
-          <div style={{ fontSize:12, color:T.creamFaint, textAlign:"center", padding:"20px 0" }}>
-            No cities found for &quot;{citySearch}&quot;
+          <div style={{ fontSize:12, color:T.creamFaint, textAlign:"center", padding:"20px 0", lineHeight:1.7 }}>
+            No cities found for &quot;{citySearch}&quot;<br/>
+            <span style={{ fontSize:11 }}>Try a different spelling or a nearby larger city.</span>
           </div>
         )}
         {loading && <div className="th-loading"><div className="th-spinner"/>Loading neighborhoods…</div>}
