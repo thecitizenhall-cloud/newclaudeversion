@@ -10,6 +10,8 @@ const FeedScreen          = dynamic(() => import("../components/FeedScreen"),   
 const ExpertScreen        = dynamic(() => import("../components/ExpertScreen"),        { ssr:false });
 const NotificationsScreen = dynamic(() => import("../components/NotificationsScreen"), { ssr:false });
 const ProfileScreen       = dynamic(() => import("../components/ProfileScreen"),       { ssr:false });
+const CommunitiesScreen   = dynamic(() => import("../components/CommunitiesScreen"),   { ssr:false });
+const Walkthrough         = dynamic(() => import("../components/Walkthrough"),         { ssr:false });
 
 // Spinner uses no browser APIs — safe to render on server and client identically
 function Spinner() {
@@ -46,8 +48,7 @@ function GatePage({ onUnlock }) {
   return (
     <div style={{ minHeight:"100vh", background:"#0F0E0C", display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'DM Sans',sans-serif" }}>
       <div style={{ background:"#1A1916", border:"1px solid #2C2A26", borderRadius:16, width:"100%", maxWidth:400, padding:"36px 32px", textAlign:"center" }}>
-        <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:28, color:"#F2EDE4", marginBottom:6 }}>Townhall Café</div>
-        <div style={{ fontSize:13, color:"#D4922A", fontStyle:"italic", marginBottom:12 }}>Where you can have a coffee break with the mayor.</div>
+        <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:28, color:"#F2EDE4", marginBottom:8 }}>Townhall Café</div>
         <div style={{ fontSize:13, color:"#9A9188", marginBottom:28, lineHeight:1.7 }}>
           We&apos;re getting ready.<br/>Enter your access code for an early look.
         </div>
@@ -129,7 +130,8 @@ function BottomTabs({ screen, navigate }) {
     { key:"civic",  label:"Civic",  color:"#378ADD" },
     { key:"expert", label:"Expert", color:"#7F77DD" },
     { key:"alerts",   label:"Alerts",   color:"#1D9E75" },
-    { key:"profile",  label:"Profile",  color:"#D4922A" },
+    { key:"profile",     label:"Profile",     color:"#D4922A" },
+    { key:"communities", label:"Groups",      color:"#D85A30" },
   ];
   return (
     <div style={{ display:"flex", background:"#1A1916", borderTop:"1px solid #2C2A26", height:60, flexShrink:0 }}>
@@ -166,6 +168,7 @@ export default function Home() {
   const [user,         setUser]         = useState(null);
   const [neighborhood, setNeighborhood] = useState("Riverdale");
   const [isMobile,     setIsMobile]     = useState(false);
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [authError,    setAuthError]    = useState(null);
 
   useEffect(() => {
@@ -199,6 +202,12 @@ export default function Home() {
         setUser(session.user);
         setNeighborhood(session.user.user_metadata?.neighborhood || "Riverdale");
         setScreen("feed");
+        // Show walkthrough on first login
+        try {
+          if (!localStorage.getItem("th_walkthrough_done")) {
+            setTimeout(() => setShowWalkthrough(true), 800);
+          }
+        } catch(e) {}
       } else {
         setScreen("onboarding");
       }
@@ -222,7 +231,11 @@ export default function Home() {
   }, []);
 
   function navigate(tab) { setScreen(tab); }
-  async function handleSignOut() { await supabase.auth.signOut(); }
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setScreen("onboarding");
+  }
 
   function handleGateUnlock() {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
@@ -277,7 +290,9 @@ export default function Home() {
       {screen === "civic"  && <FeedScreen          onNavigate={navigate} initialView="civic"/>}
       {screen === "expert" && <ExpertScreen        onNavigate={navigate}/>}
       {screen === "alerts"  && <NotificationsScreen onNavigate={navigate}/>}
-      {screen === "profile" && <ProfileScreen onNavigate={navigate} onSignOut={handleSignOut}/>}
+      {screen === "profile"     && <ProfileScreen     onNavigate={navigate} onSignOut={handleSignOut}/>}
+      {screen === "communities" && <CommunitiesScreen onNavigate={navigate}/> }
+      {showWalkthrough && <Walkthrough onNavigate={navigate} onComplete={() => setShowWalkthrough(false)}/>}
     </>
   );
 
