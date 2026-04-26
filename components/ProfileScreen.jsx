@@ -168,13 +168,44 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
   async function searchCities(query) {
     setCitySearch(query);
     if (query.length < 2) { setCityResults([]); return; }
-    const { data } = await supabase
-      .from("cities")
-      .select("id, name, state, lat, lng")
-      .ilike("name", `%${query}%`)
-      .order("name")
-      .limit(10);
-    setCityResults(data || []);
+
+    const [dbResult, nominatimResult] = await Promise.allSettled([
+      supabase
+        .from("cities")
+        .select("id, name, state, lat, lng")
+        .ilike("name", `%${query}%`)
+        .order("name")
+        .limit(15),
+
+      fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ", USA")}&format=json&addressdetails=1&limit=10&featuretype=city`,
+        { headers: { "User-Agent": "TownhallCafe/1.0 (hello@townhallcafe.org)" } }
+      ).then(r => r.json())
+    ]);
+
+    const dbCities = dbResult.status === "fulfilled" ? (dbResult.value.data || []) : [];
+
+    let nominatimCities = [];
+    if (nominatimResult.status === "fulfilled") {
+      nominatimCities = nominatimResult.value
+        .filter(r => ["city","town","village","municipality","borough","hamlet"].includes(r.type) || r.addresstype === "city")
+        .map(r => ({
+          nominatim_id: r.place_id,
+          name:  r.address?.city || r.address?.town || r.address?.village || r.address?.hamlet || r.name,
+          state: r.address?.state_code || r.address?.ISO3166_2_lvl4?.replace("US-","") || "",
+          lat:   parseFloat(r.lat),
+          lng:   parseFloat(r.lon),
+          fromNominatim: true,
+        }))
+        .filter(r => r.name && r.state);
+    }
+
+    const dbNames = new Set(dbCities.map(c => `${c.name.toLowerCase()}-${c.state.toLowerCase()}`));
+    const newFromNominatim = nominatimCities.filter(c =>
+      !dbNames.has(`${c.name.toLowerCase()}-${c.state.toLowerCase()}`)
+    );
+
+    setCityResults([...dbCities, ...newFromNominatim].slice(0, 15));
   }
 
   async function loadHoodsForCity(city) {
