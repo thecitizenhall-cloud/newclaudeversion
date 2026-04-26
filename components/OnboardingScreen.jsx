@@ -401,12 +401,8 @@ function StepNeighborhood({ onNext }) {
           .upsert(toInsert, { onConflict:"slug,city_id", ignoreDuplicates:true })
           .select("id, name, center_lat, center_lng");
 
-        const finalHoods = saved?.length ? saved : data.neighborhoods.map((n, i) => ({
-          id:         `temp-${i}`,
-          name:       n.name,
-          center_lat: n.lat,
-          center_lng: n.lng,
-        }));
+        // Only use hoods with real UUIDs from DB — temp IDs cause UUID errors on save
+        const finalHoods = saved?.length ? saved : [];
 
         setHoods(finalHoods);
         autoSelectClosest(finalHoods, city);
@@ -461,7 +457,7 @@ function StepNeighborhood({ onNext }) {
           .select("id, name, center_lat, center_lng");
 
         const finalHoods = saved?.length ? saved : nominees.map((n, i) => ({
-          id: `nominatim-${i}`, name: n.name, center_lat: n.lat, center_lng: n.lng,
+          id: null, name: n.name, center_lat: n.lat, center_lng: n.lng,
         }));
 
         setHoods(finalHoods);
@@ -547,7 +543,8 @@ function StepNeighborhood({ onNext }) {
         .select()
         .single();
       // Use the saved row (with real UUID) or fall back to nominatim data
-      const finalCity = saved || { ...city, id: `nominatim-${city.nominatim_id}` };
+      const finalCity = saved || null;
+      if (!finalCity) { setLoading(false); return; } // city save failed, can't proceed
       setSelectedCity(finalCity);
       await loadNeighborhoodsForCity(finalCity);
     } else {
