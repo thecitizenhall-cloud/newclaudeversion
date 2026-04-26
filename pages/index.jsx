@@ -191,7 +191,7 @@ export default function Home() {
     }
 
     // Step 4: auth check
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (error) {
         console.error("Auth error:", error);
         setAuthError(error.message);
@@ -200,8 +200,25 @@ export default function Home() {
       }
       if (session) {
         setUser(session.user);
-        setNeighborhood(session.user.user_metadata?.neighborhood || "Riverdale");
+
+        // Check if user has completed onboarding (has a neighborhood)
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("neighborhood_id, neighborhood, display_name")
+          .eq("id", session.user.id)
+          .single();
+
+        const hasNeighborhood = prof?.neighborhood_id || session.user.user_metadata?.neighborhood_id;
+
+        if (!hasNeighborhood) {
+          // New user — send to onboarding
+          setScreen("onboarding");
+          return;
+        }
+
+        setNeighborhood(prof?.neighborhood || session.user.user_metadata?.neighborhood || "Riverdale");
         setScreen("feed");
+
         // Show walkthrough on first login
         try {
           if (!localStorage.getItem("th_walkthrough_done")) {
@@ -213,10 +230,28 @@ export default function Home() {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_e, session) => {
       if (session) {
         setUser(session.user);
-        setNeighborhood(session.user.user_metadata?.neighborhood || "Riverdale");
+
+        // Check onboarding completion
+        const hasNeighborhood = session.user.user_metadata?.neighborhood_id;
+        if (!hasNeighborhood) {
+          // Check profiles table as fallback
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("neighborhood_id, neighborhood")
+            .eq("id", session.user.id)
+            .single();
+
+          if (!prof?.neighborhood_id) {
+            setScreen("onboarding");
+            return;
+          }
+          setNeighborhood(prof.neighborhood || "Riverdale");
+        } else {
+          setNeighborhood(session.user.user_metadata?.neighborhood || "Riverdale");
+        }
         setScreen("feed");
       } else {
         setUser(null);
@@ -296,21 +331,32 @@ export default function Home() {
     </>
   );
 
-  if (isMobile) {
-    return (
-      <div style={{ display:"flex", flexDirection:"column", height:"100vh", overflow:"hidden" }}>
-        <div style={{ flex:1, overflow:"hidden" }}>{content}</div>
+  // Use CSS classes for responsive layout — avoids isMobile JS state issues
+  return (
+    <>
+      <style>{`
+        .app-shell { display:grid; grid-template-columns:200px 1fr; height:100vh; overflow:hidden; }
+        .app-sidebar { display:flex; }
+        .app-content { overflow:hidden; display:flex; flex-direction:column; height:100vh; }
+        .app-bottom-tabs { display:none; }
+        @media(max-width:767px) {
+          .app-shell { grid-template-columns:1fr; grid-template-rows:1fr 60px; }
+          .app-sidebar { display:none; }
+          .app-content { height:calc(100vh - 60px); }
+          .app-bottom-tabs { display:flex; }
+        }
+      `}</style>
+      <div className="app-shell">
+        <div className="app-sidebar">
+          <Sidebar screen={screen} navigate={navigate} userInit={userInit} neighborhood={neighborhood} onSignOut={handleSignOut}/>
+        </div>
+        <div className="app-content">
+          {content}
+        </div>
+      </div>
+      <div className="app-bottom-tabs" style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:50 }}>
         <BottomTabs screen={screen} navigate={navigate}/>
       </div>
-    );
-  }
-
-  return (
-    <div style={{ display:"grid", gridTemplateColumns:"200px 1fr", height:"100vh", overflow:"hidden" }}>
-      <Sidebar screen={screen} navigate={navigate} userInit={userInit} neighborhood={neighborhood} onSignOut={handleSignOut}/>
-      <div style={{ overflow:"hidden", display:"flex", flexDirection:"column", height:"100vh" }}>
-        {content}
-      </div>
-    </div>
+    </>
   );
 }
