@@ -310,6 +310,9 @@ function StepNeighborhood({ onNext }) {
   const [citySearch,   setCitySearch]   = useState("");
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState("");
+  const [showCreate,   setShowCreate]   = useState(false);
+  const [newHoodName,  setNewHoodName]  = useState("");
+  const [creating,     setCreating]     = useState(false);
 
   // Haversine distance in miles
   function distanceMiles(lat1, lng1, lat2, lng2) {
