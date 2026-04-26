@@ -126,6 +126,13 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
   const [profile,      setProfile]      = useState(null);
   const [neighborhoods,setNeighborhoods]= useState([]);
   const [form,         setForm]         = useState({ display_name:"", neighborhood_id:"" });
+  const [citySearch,   setCitySearch]   = useState("");
+  const [cityResults,  setCityResults]  = useState([]);
+  const [showCitySearch, setShowCitySearch] = useState(false);
+  const [showCreateHood, setShowCreateHood] = useState(false);
+  const [newHoodName,  setNewHoodName]  = useState("");
+  const [creating,     setCreating]     = useState(false);
+  const [selectedCity, setSelectedCity] = useState(null);
   const [loading,      setLoading]      = useState(true);
   const [saving,       setSaving]       = useState(false);
   const [saved,        setSaved]        = useState(false);
@@ -157,6 +164,78 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
     }
     load();
   }, []);
+
+  async function searchCities(query) {
+    setCitySearch(query);
+    if (query.length < 2) { setCityResults([]); return; }
+    const { data } = await supabase
+      .from("cities")
+      .select("id, name, state, lat, lng")
+      .ilike("name", `%${query}%`)
+      .order("name")
+      .limit(10);
+    setCityResults(data || []);
+  }
+
+  async function loadHoodsForCity(city) {
+    setSelectedCity(city);
+    setCityResults([]);
+    setCitySearch("");
+    // Try DB first
+    const { data: linked } = await supabase
+      .from("neighborhoods")
+      .select("id, name")
+      .eq("city_id", city.id)
+      .order("name");
+    if (linked?.length) {
+      setNeighborhoods(linked);
+    } else {
+      // Query API route
+      try {
+        const res = await fetch(`/api/neighborhoods-lookup?city=${encodeURIComponent(city.name)}&state=${city.state}&lat=${city.lat}&lng=${city.lng}`);
+        const data = await res.json();
+        if (data.neighborhoods?.length) {
+          const toInsert = data.neighborhoods.map(n => ({
+            name: n.name,
+            slug: n.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+            city_id: city.id,
+            center_lat: n.lat,
+            center_lng: n.lng,
+          }));
+          const { data: saved } = await supabase
+            .from("neighborhoods")
+            .upsert(toInsert, { onConflict:"slug,city_id", ignoreDuplicates:true })
+            .select("id, name");
+          setNeighborhoods(saved || data.neighborhoods.map((n,i) => ({ id:`temp-${i}`, name:n.name })));
+        } else {
+          setNeighborhoods([]);
+        }
+      } catch(e) {
+        setNeighborhoods([]);
+      }
+    }
+    setShowCitySearch(false);
+  }
+
+  async function handleCreateHood() {
+    if (!newHoodName.trim() || creating) return;
+    setCreating(true);
+    const name = newHoodName.trim();
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const { data, error: err } = await supabase
+      .from("neighborhoods")
+      .insert({ name, slug, city_id: selectedCity?.id || null })
+      .select("id, name")
+      .single();
+    if (err && err.code === "23505") {
+      const { data: ex } = await supabase.from("neighborhoods").select("id, name").eq("slug", slug).single();
+      if (ex) { setForm(f => ({ ...f, neighborhood_id: ex.id })); setNeighborhoods(p => p.find(h => h.id === ex.id) ? p : [ex, ...p]); }
+    } else if (data) {
+      setForm(f => ({ ...f, neighborhood_id: data.id }));
+      setNeighborhoods(p => [data, ...p]);
+    }
+    setNewHoodName(""); setShowCreateHood(false); setCreating(false);
+  }
 
   async function handleSave() {
     if (!form.display_name.trim()) { setError("Display name can't be empty."); return; }
@@ -326,13 +405,78 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
             <label style={{ display:"block", fontSize:11, fontWeight:500, color:T.creamDim, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6 }}>
               Neighborhood
             </label>
-            <select className="profile-select" value={form.neighborhood_id}
-              onChange={e => setForm(f => ({ ...f, neighborhood_id:e.target.value }))}>
-              <option value="">Select neighborhood…</option>
-              {neighborhoods.map(n => (
-                <option key={n.id} value={n.id}>{n.name}</option>
-              ))}
-            </select>
+
+            {/* Current neighborhood + change button */}
+            {form.neighborhood_id && !showCitySearch && (
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                <div style={{ flex:1, padding:"10px 14px", background:T.bg, border:`1px solid ${T.border}`, borderRadius:8, fontSize:13, color:T.cream }}>
+                  {neighborhoods.find(n => n.id === form.neighborhood_id)?.name || profile?.neighborhood || "Unknown"}
+                </div>
+                <button onClick={() => setShowCitySearch(true)}
+                  style={{ background:"transparent", border:`1px solid ${T.border}`, borderRadius:8, padding:"10px 12px", fontSize:12, color:T.creamDim, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", whiteSpace:"nowrap" }}>
+                  Change
+                </button>
+              </div>
+            )}
+
+            {/* City search */}
+            {(showCitySearch || !form.neighborhood_id) && (
+              <div>
+                <input className="profile-input" placeholder="Search your city…"
+                  value={citySearch} onChange={e => searchCities(e.target.value)}
+                  style={{ marginBottom:6 }}/>
+                {cityResults.length > 0 && (
+                  <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:8, overflow:"hidden", marginBottom:8 }}>
+                    {cityResults.map(city => (
+                      <div key={city.id} onClick={() => loadHoodsForCity(city)}
+                        style={{ padding:"9px 14px", fontSize:13, color:T.cream, cursor:"pointer", borderBottom:`1px solid ${T.border}`, display:"flex", justifyContent:"space-between" }}
+                        onMouseEnter={e => e.currentTarget.style.background = T.surfaceHi}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <span>{city.name}</span>
+                        <span style={{ fontSize:11, color:T.creamDim }}>{city.state}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Neighborhood list after city selected */}
+                {neighborhoods.length > 0 && selectedCity && (
+                  <>
+                    <select className="profile-select" value={form.neighborhood_id}
+                      onChange={e => setForm(f => ({ ...f, neighborhood_id:e.target.value }))}
+                      style={{ marginBottom:6 }}>
+                      <option value="">Select neighborhood in {selectedCity.name}…</option>
+                      {neighborhoods.map(n => (
+                        <option key={n.id} value={n.id}>{n.name}</option>
+                      ))}
+                    </select>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Create neighborhood */}
+            {!showCreateHood ? (
+              <button onClick={() => setShowCreateHood(true)}
+                style={{ background:"transparent", border:"none", fontSize:12, color:T.creamDim, cursor:"pointer", textDecoration:"underline", fontFamily:"'DM Sans',sans-serif", padding:"4px 0" }}>
+                Don&apos;t see your neighborhood? Create one
+              </button>
+            ) : (
+              <div style={{ background:T.surfaceHi, border:`1px solid ${T.border}`, borderRadius:8, padding:"12px", marginTop:6 }}>
+                <input className="profile-input" placeholder="Neighborhood name"
+                  value={newHoodName} onChange={e => setNewHoodName(e.target.value)}
+                  style={{ marginBottom:8 }} autoFocus/>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={() => { setShowCreateHood(false); setNewHoodName(""); }}
+                    style={{ flex:1, padding:"8px", background:"transparent", border:`1px solid ${T.border}`, borderRadius:7, fontSize:12, color:T.creamDim, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
+                    Cancel
+                  </button>
+                  <button onClick={handleCreateHood} disabled={!newHoodName.trim() || creating}
+                    style={{ flex:2, padding:"8px", background:T.amber, border:"none", borderRadius:7, fontSize:12, fontWeight:500, color:T.bg, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", opacity:!newHoodName.trim()||creating?0.4:1 }}>
+                    {creating ? "Creating…" : "Create →"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {error && (
