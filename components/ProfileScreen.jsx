@@ -180,7 +180,8 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
   async function loadHoodsForCity(city) {
     setSelectedCity(city);
     setCityResults([]);
-    setCitySearch("");
+    setCitySearch(city.name);
+    setForm(f => ({ ...f, neighborhood_id:"" })); // clear selection so user picks fresh
     // Try DB first
     const { data: linked } = await supabase
       .from("neighborhoods")
@@ -406,58 +407,42 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
               Neighborhood
             </label>
 
-            {/* Current neighborhood + change button */}
-            {form.neighborhood_id && !showCitySearch && (
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                <div style={{ flex:1, padding:"10px 14px", background:T.bg, border:`1px solid ${T.border}`, borderRadius:8, fontSize:13, color:T.cream }}>
-                  {neighborhoods.find(n => n.id === form.neighborhood_id)?.name || profile?.neighborhood || "Unknown"}
+            {/* Step 1 — City search */}
+            <div style={{ marginBottom:8 }}>
+              <input className="profile-input" placeholder="Search your city…"
+                value={citySearch} onChange={e => searchCities(e.target.value)}
+                style={{ marginBottom:4 }}/>
+              {cityResults.length > 0 && (
+                <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:8, overflow:"hidden", marginBottom:6 }}>
+                  {cityResults.map(city => (
+                    <div key={city.id} onClick={() => loadHoodsForCity(city)}
+                      style={{ padding:"9px 14px", fontSize:13, color:T.cream, cursor:"pointer", borderBottom:`1px solid ${T.border}`, display:"flex", justifyContent:"space-between" }}
+                      onMouseEnter={e => e.currentTarget.style.background = T.surfaceHi}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <span>{city.name}</span>
+                      <span style={{ fontSize:11, color:T.creamDim }}>{city.state}</span>
+                    </div>
+                  ))}
                 </div>
-                <button onClick={() => setShowCitySearch(true)}
-                  style={{ background:"transparent", border:`1px solid ${T.border}`, borderRadius:8, padding:"10px 12px", fontSize:12, color:T.creamDim, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", whiteSpace:"nowrap" }}>
-                  Change
-                </button>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* City search */}
-            {(showCitySearch || !form.neighborhood_id) && (
-              <div>
-                <input className="profile-input" placeholder="Search your city…"
-                  value={citySearch} onChange={e => searchCities(e.target.value)}
-                  style={{ marginBottom:6 }}/>
-                {cityResults.length > 0 && (
-                  <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:8, overflow:"hidden", marginBottom:8 }}>
-                    {cityResults.map(city => (
-                      <div key={city.id} onClick={() => loadHoodsForCity(city)}
-                        style={{ padding:"9px 14px", fontSize:13, color:T.cream, cursor:"pointer", borderBottom:`1px solid ${T.border}`, display:"flex", justifyContent:"space-between" }}
-                        onMouseEnter={e => e.currentTarget.style.background = T.surfaceHi}
-                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                        <span>{city.name}</span>
-                        <span style={{ fontSize:11, color:T.creamDim }}>{city.state}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {/* Neighborhood list after city selected */}
-                {neighborhoods.length > 0 && selectedCity && (
-                  <>
-                    <select className="profile-select" value={form.neighborhood_id}
-                      onChange={e => setForm(f => ({ ...f, neighborhood_id:e.target.value }))}
-                      style={{ marginBottom:6 }}>
-                      <option value="">Select neighborhood in {selectedCity.name}…</option>
-                      {neighborhoods.map(n => (
-                        <option key={n.id} value={n.id}>{n.name}</option>
-                      ))}
-                    </select>
-                  </>
-                )}
-              </div>
-            )}
+            {/* Step 2 — Neighborhood picker */}
+            <select className="profile-select" value={form.neighborhood_id}
+              onChange={e => setForm(f => ({ ...f, neighborhood_id:e.target.value }))}
+              style={{ marginBottom:6 }}>
+              <option value="">
+                {selectedCity ? `Select neighborhood in ${selectedCity.name}…` : "Select neighborhood…"}
+              </option>
+              {neighborhoods.map(n => (
+                <option key={n.id} value={n.id}>{n.name}</option>
+              ))}
+            </select>
 
             {/* Create neighborhood */}
             {!showCreateHood ? (
               <button onClick={() => setShowCreateHood(true)}
-                style={{ background:"transparent", border:"none", fontSize:12, color:T.creamDim, cursor:"pointer", textDecoration:"underline", fontFamily:"'DM Sans',sans-serif", padding:"4px 0" }}>
+                style={{ background:"transparent", border:"none", fontSize:12, color:T.creamDim, cursor:"pointer", textDecoration:"underline", fontFamily:"'DM Sans',sans-serif", padding:"2px 0" }}>
                 Don&apos;t see your neighborhood? Create one
               </button>
             ) : (
