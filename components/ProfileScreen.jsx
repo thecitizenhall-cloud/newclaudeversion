@@ -207,7 +207,8 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
             .from("neighborhoods")
             .upsert(toInsert, { onConflict:"slug,city_id", ignoreDuplicates:true })
             .select("id, name");
-          setNeighborhoods(saved || data.neighborhoods.map((n,i) => ({ id:`temp-${i}`, name:n.name })));
+          // Only use rows with real UUIDs — temp IDs cause errors when saving
+          setNeighborhoods(saved || []);
         } else {
           setNeighborhoods([]);
         }
