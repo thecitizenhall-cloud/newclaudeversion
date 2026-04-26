@@ -676,10 +676,81 @@ function StepNeighborhood({ onNext }) {
           onClick={() => onNext({ hood: { id:selectedHood.id, name:selectedHood.name } })}>
           Continue →
         </button>
-        <button className="th-btn th-btn-ghost"
-          onClick={() => setError("Neighborhood creation coming soon — contact us to add yours.")}>
-          I don&apos;t see my neighborhood
-        </button>
+        {!showCreate ? (
+          <button className="th-btn th-btn-ghost" onClick={() => { setShowCreate(true); setError(""); }}>
+            I don&apos;t see my neighborhood — create one
+          </button>
+        ) : (
+          <div style={{ background:T.surfaceHi, border:`1px solid ${T.border}`, borderRadius:10, padding:"14px", marginTop:4 }}>
+            <div style={{ fontSize:12, fontWeight:500, color:T.creamDim, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>
+              Create a new neighborhood
+            </div>
+            <input
+              className="th-input"
+              placeholder="Neighborhood name e.g. Northside"
+              value={newHoodName}
+              onChange={e => setNewHoodName(e.target.value)}
+              style={{ marginBottom:10 }}
+              autoFocus
+            />
+            <div style={{ display:"flex", gap:8 }}>
+              <button
+                className="th-btn th-btn-ghost"
+                style={{ flex:1, padding:"9px 0" }}
+                onClick={() => { setShowCreate(false); setNewHoodName(""); setError(""); }}>
+                Cancel
+              </button>
+              <button
+                className="th-btn th-btn-primary"
+                style={{ flex:2, padding:"9px 0" }}
+                disabled={!newHoodName.trim() || creating}
+                onClick={async () => {
+                  if (!newHoodName.trim() || creating) return;
+                  setCreating(true); setError("");
+                  const name = newHoodName.trim();
+                  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+                  const { data, error: err } = await supabase
+                    .from("neighborhoods")
+                    .insert({
+                      name,
+                      slug,
+                      city_id:    selectedCity?.id || null,
+                      center_lat: coords?.lat || selectedCity?.lat || null,
+                      center_lng: coords?.lng || selectedCity?.lng || null,
+                    })
+                    .select("id, name, center_lat, center_lng")
+                    .single();
+                  if (err) {
+                    if (err.code === "23505") {
+                      // Already exists — just find and select it
+                      const { data: existing } = await supabase
+                        .from("neighborhoods")
+                        .select("id, name, center_lat, center_lng")
+                        .eq("slug", slug)
+                        .single();
+                      if (existing) {
+                        setSelectedHood(existing);
+                        setHoods(prev => prev.find(h => h.id === existing.id) ? prev : [existing, ...prev]);
+                        setShowCreate(false);
+                        setNewHoodName("");
+                      }
+                    } else {
+                      setError("Could not create neighborhood — " + err.message);
+                    }
+                  } else {
+                    setSelectedHood(data);
+                    setHoods(prev => [data, ...prev]);
+                    setShowCreate(false);
+                    setNewHoodName("");
+                  }
+                  setCreating(false);
+                }}>
+                {creating ? "Creating…" : "Create neighborhood →"}
+              </button>
+            </div>
+            {error && <div style={{ fontSize:12, color:"#E57373", marginTop:8 }}>{error}</div>}
+          </div>
+        )}
       </div>
     </>
   );
