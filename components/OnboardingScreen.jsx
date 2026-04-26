@@ -387,22 +387,14 @@ function StepNeighborhood({ onNext }) {
       const data = await res.json();
 
       if (data.neighborhoods?.length) {
-        // Save to Supabase so future users don't need to re-query
-        const toInsert = data.neighborhoods.map(n => ({
-          name:       n.name,
-          slug:       n.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-          city_id:    city.id,
-          center_lat: n.lat,
-          center_lng: n.lng,
-        }));
-
-        const { data: saved } = await supabase
-          .from("neighborhoods")
-          .upsert(toInsert, { onConflict:"slug,city_id", ignoreDuplicates:true })
-          .select("id, name, center_lat, center_lng");
-
-        // Only use hoods with real UUIDs from DB — temp IDs cause UUID errors on save
-        const finalHoods = saved?.length ? saved : [];
+        // Save to DB via server API (bypasses RLS, avoids temp ID issues)
+        const saveRes = await fetch("/api/save-neighborhoods", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ neighborhoods: data.neighborhoods, city_id: city.id }),
+        });
+        const saveData = await saveRes.json();
+        const finalHoods = saveData.saved?.length ? saveData.saved : [];
 
         setHoods(finalHoods);
         autoSelectClosest(finalHoods, city);
@@ -451,14 +443,13 @@ function StepNeighborhood({ onNext }) {
           center_lng: n.lng,
         }));
 
-        const { data: saved } = await supabase
-          .from("neighborhoods")
-          .upsert(toInsert, { onConflict:"slug,city_id", ignoreDuplicates:true })
-          .select("id, name, center_lat, center_lng");
-
-        const finalHoods = saved?.length ? saved : nominees.map((n, i) => ({
-          id: null, name: n.name, center_lat: n.lat, center_lng: n.lng,
-        }));
+        const saveRes = await fetch("/api/save-neighborhoods", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ neighborhoods: nominees.map(n => ({ name:n.name, lat:n.lat, lng:n.lon })), city_id: city.id }),
+        });
+        const saveData = await saveRes.json();
+        const finalHoods = saveData.saved?.length ? saveData.saved : [];
 
         setHoods(finalHoods);
         autoSelectClosest(finalHoods, city);
