@@ -196,19 +196,13 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
         const res = await fetch(`/api/neighborhoods-lookup?city=${encodeURIComponent(city.name)}&state=${city.state}&lat=${city.lat}&lng=${city.lng}`);
         const data = await res.json();
         if (data.neighborhoods?.length) {
-          const toInsert = data.neighborhoods.map(n => ({
-            name: n.name,
-            slug: n.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-            city_id: city.id,
-            center_lat: n.lat,
-            center_lng: n.lng,
-          }));
-          const { data: saved } = await supabase
-            .from("neighborhoods")
-            .upsert(toInsert, { onConflict:"slug,city_id", ignoreDuplicates:true })
-            .select("id, name");
-          // Only use rows with real UUIDs — temp IDs cause errors when saving
-          setNeighborhoods(saved || []);
+          const saveRes = await fetch("/api/save-neighborhoods", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ neighborhoods: data.neighborhoods, city_id: city.id }),
+          });
+          const saveData = await saveRes.json();
+          setNeighborhoods(saveData.saved || []);
         } else {
           setNeighborhoods([]);
         }
