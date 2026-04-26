@@ -479,45 +479,47 @@ function StepNeighborhood({ onNext }) {
     setCitySearch(query);
     if (query.length < 2) { setCities([]); return; }
 
-    // First search our database
-    const { data: dbCities } = await supabase
-      .from("cities")
-      .select("id, name, state, lat, lng")
-      .ilike("name", `%${query}%`)
-      .order("name")
-      .limit(20);
+    // Run DB and Nominatim in parallel — always both, then merge
+    const [dbResult, nominatimResult] = await Promise.allSettled([
+      // DB search
+      supabase
+        .from("cities")
+        .select("id, name, state, lat, lng")
+        .ilike("name", `%${query}%`)
+        .order("name")
+        .limit(20),
 
-    if (dbCities?.length) {
-      setCities(dbCities);
-      return;
-    }
+      // Nominatim search — catches cities not in our DB
+      fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ", USA")}&format=json&addressdetails=1&limit=15&featuretype=city`,
+        { headers: { "User-Agent": "TownhallCafe/1.0 (hello@townhallcafe.org)" } }
+      ).then(r => r.json())
+    ]);
 
-    // Not in DB — query Nominatim to find it
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ", USA")}&format=json&addressdetails=1&limit=10&featuretype=city`;
-      const res = await fetch(url, {
-        headers: { "User-Agent": "TownhallCafe/1.0 (hello@townhallcafe.org)" }
-      });
-      const results = await res.json();
+    const dbCities = dbResult.status === "fulfilled" ? (dbResult.value.data || []) : [];
 
-      // Filter to US cities/towns only
-      const nominees = results
-        .filter(r => ["city","town","village","municipality"].includes(r.type) || r.addresstype === "city")
+    let nominatimCities = [];
+    if (nominatimResult.status === "fulfilled") {
+      nominatimCities = nominatimResult.value
+        .filter(r => ["city","town","village","municipality","borough","hamlet"].includes(r.type) || r.addresstype === "city")
         .map(r => ({
           nominatim_id: r.place_id,
-          name:  r.address?.city || r.address?.town || r.address?.village || r.name,
-          state: r.address?.state_code || r.address?.state || "",
+          name:  r.address?.city || r.address?.town || r.address?.village || r.address?.hamlet || r.name,
+          state: r.address?.state_code || r.address?.ISO3166_2_lvl4?.replace("US-","") || "",
           lat:   parseFloat(r.lat),
           lng:   parseFloat(r.lon),
           fromNominatim: true,
         }))
         .filter(r => r.name && r.state);
-
-      setCities(nominees);
-    } catch (err) {
-      console.log("Nominatim search error:", err.message);
-      setCities([]);
     }
+
+    // Merge — DB results first (they have real UUIDs), then Nominatim results not already in DB
+    const dbNames = new Set(dbCities.map(c => `${c.name.toLowerCase()}-${c.state.toLowerCase()}`));
+    const newFromNominatim = nominatimCities.filter(c =>
+      !dbNames.has(`${c.name.toLowerCase()}-${c.state.toLowerCase()}`)
+    );
+
+    setCities([...dbCities, ...newFromNominatim].slice(0, 20));
   }
 
   async function handleCitySelect(city) {
