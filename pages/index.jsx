@@ -10,7 +10,6 @@ const FeedScreen          = dynamic(() => import("../components/FeedScreen"),   
 const ExpertScreen        = dynamic(() => import("../components/ExpertScreen"),        { ssr:false });
 const NotificationsScreen = dynamic(() => import("../components/NotificationsScreen"), { ssr:false });
 const ProfileScreen       = dynamic(() => import("../components/ProfileScreen"),       { ssr:false });
-const CommunitiesScreen   = dynamic(() => import("../components/CommunitiesScreen"),   { ssr:false });
 const Walkthrough         = dynamic(() => import("../components/Walkthrough"),         { ssr:false });
 
 // Spinner uses no browser APIs — safe to render on server and client identically
@@ -131,7 +130,6 @@ function BottomTabs({ screen, navigate }) {
     { key:"expert", label:"Expert", color:"#7F77DD" },
     { key:"alerts",   label:"Alerts",   color:"#1D9E75" },
     { key:"profile",     label:"Profile",     color:"#D4922A" },
-    { key:"communities", label:"Groups",      color:"#D85A30" },
   ];
   return (
     <div style={{ display:"flex", background:"#1A1916", borderTop:"1px solid #2C2A26", height:60, flexShrink:0 }}>
@@ -326,7 +324,6 @@ export default function Home() {
       {screen === "expert" && <ExpertScreen        onNavigate={navigate}/>}
       {screen === "alerts"  && <NotificationsScreen onNavigate={navigate}/>}
       {screen === "profile"     && <ProfileScreen     onNavigate={navigate} onSignOut={handleSignOut}/>}
-      {screen === "communities" && <CommunitiesScreen onNavigate={navigate}/> }
       {showWalkthrough && <Walkthrough onNavigate={navigate} onComplete={() => setShowWalkthrough(false)}/>}
     </>
   );
