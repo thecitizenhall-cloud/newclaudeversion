@@ -142,25 +142,35 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) { setLoading(false); return; }
 
-      const [{ data: prof }, { data: hoods }, { count: posts }, { count: answers }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).single(),
-        supabase.from("neighborhoods").select("id, name").order("name"),
-        supabase.from("posts").select("*", { count:"exact", head:true }).eq("author_id", user.id),
-        supabase.from("expert_answers").select("*", { count:"exact", head:true }).eq("expert_id", user.id),
-      ]);
+        const [profResult, hoodsResult, postsResult, answersResult] = await Promise.allSettled([
+          supabase.from("profiles").select("*").eq("id", user.id).single(),
+          supabase.from("neighborhoods").select("id, name").order("name"),
+          supabase.from("posts").select("*", { count:"exact", head:true }).eq("author_id", user.id),
+          supabase.from("expert_answers").select("*", { count:"exact", head:true }).eq("expert_id", user.id),
+        ]);
 
-      setProfile({ ...prof, email: user.email });
-      setNeighborhoods(hoods || []);
-      setForm({
-        display_name:    prof?.display_name || "",
-        neighborhood_id: prof?.neighborhood_id || "",
-      });
-      setPostCount(posts || 0);
-      setAnswerCount(answers || 0);
-      setLoading(false);
+        const prof    = profResult.status    === "fulfilled" ? profResult.value.data    : null;
+        const hoods   = hoodsResult.status   === "fulfilled" ? hoodsResult.value.data   : [];
+        const posts   = postsResult.status   === "fulfilled" ? postsResult.value.count  : 0;
+        const answers = answersResult.status === "fulfilled" ? answersResult.value.count : 0;
+
+        setProfile({ ...(prof || {}), email: user.email });
+        setNeighborhoods(hoods || []);
+        setForm({
+          display_name:    prof?.display_name || "",
+          neighborhood_id: prof?.neighborhood_id || "",
+        });
+        setPostCount(posts || 0);
+        setAnswerCount(answers || 0);
+      } catch(e) {
+        console.error("Profile load error:", e);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, []);
