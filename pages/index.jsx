@@ -168,7 +168,7 @@ export default function Home() {
       if (session) {
         setUser(session.user);
         const { data:prof } = await supabase.from("profiles")
-          .select("neighborhood_id,neighborhood").eq("id",session.user.id).single();
+          .select("neighborhood_id,neighborhood").eq("id",session.user.id).maybeSingle();
         if (!prof?.neighborhood_id) { setScreen("onboarding"); return; }
         setNeighborhood(prof.neighborhood||"My Neighborhood");
         setScreen("feed");
@@ -187,7 +187,7 @@ export default function Home() {
     if (session) {
       setUser(session.user);
       const { data:prof } = await supabase.from("profiles")
-        .select("neighborhood_id,neighborhood").eq("id",session.user.id).single();
+        .select("neighborhood_id,neighborhood").eq("id",session.user.id).maybeSingle();
       if (!prof?.neighborhood_id) { setScreen("onboarding"); return; }
       setNeighborhood(prof.neighborhood||"My Neighborhood");
       setScreen("feed");
@@ -214,7 +214,7 @@ export default function Home() {
     if (session) {
       setUser(session.user);
       const { data:prof } = await supabase.from("profiles")
-        .select("neighborhood_id,neighborhood").eq("id",session.user.id).single();
+        .select("neighborhood_id,neighborhood").eq("id",session.user.id).maybeSingle();
       if (!prof?.neighborhood_id) { setScreen("onboarding"); return; }
       setNeighborhood(prof.neighborhood||"My Neighborhood");
       setScreen("feed");
