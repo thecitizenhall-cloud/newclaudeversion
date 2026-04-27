@@ -487,7 +487,8 @@ export default function FeedScreen({ onNavigate }) {
       .order("created_at", { ascending:false })
       .limit(50);
 
-    console.log("loadPosts:", data?.length, "posts, error:", error?.message);
+    console.log("loadPosts:", data?.length, "posts, error:", error?.message, error?.code, error?.details);
+    if (error) { setLoadError(error.message || "Failed to load posts"); return; }
     if (!data) return;
     if (user && data.length) {
       const { data: upvotes } = await supabase.from("post_upvotes").select("post_id").eq("user_id", user.id).in("post_id", data.map(p=>p.id));
