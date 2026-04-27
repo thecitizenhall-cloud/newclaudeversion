@@ -276,14 +276,55 @@ function StepNeighborhood({ onNext }) {
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         setCoords({ lat:latitude, lng:longitude });
-        const { data:allCities } = await supabase.from("cities").select("id,name,state,lat,lng");
-        if (!allCities?.length) { setPhase("manual"); return; }
-        const withDist = allCities.map(c => ({ ...c, dist:distanceMiles(latitude,longitude,c.lat,c.lng) })).sort((a,b)=>a.dist-b.dist);
-        const nearby = withDist.slice(0,10);
-        setCities(nearby);
-        const closest = nearby[0];
-        setSelectedCity(closest);
-        await loadNeighborhoodsForCity(closest, { lat:latitude, lng:longitude });
+
+        // Run DB lookup and Nominatim reverse geocode in parallel
+        const [dbResult, nomResult] = await Promise.allSettled([
+          supabase.from("cities").select("id,name,state,lat,lng"),
+          fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
+            { headers:{"User-Agent":"TownhallCafe/1.0 (hello@townhallcafe.org)"} }
+          ).then(r=>r.json()),
+        ]);
+
+        const allCities = dbResult.status==="fulfilled" ? (dbResult.value.data||[]) : [];
+
+        // Try to find exact city from Nominatim reverse geocode
+        let exactCity = null;
+        if (nomResult.status==="fulfilled") {
+          const addr = nomResult.value?.address;
+          const cityName = addr?.city||addr?.town||addr?.village||addr?.hamlet||addr?.county;
+          const stateCode = addr?.ISO3166_2_lvl4?.replace("US-","")||addr?.state_code||"";
+          if (cityName && stateCode) {
+            // Check if this city is in our DB
+            exactCity = allCities.find(c =>
+              c.name.toLowerCase()===cityName.toLowerCase() &&
+              c.state.toLowerCase()===stateCode.toLowerCase()
+            );
+            // If not in DB, save it
+            if (!exactCity && cityName) {
+              const { data:saved } = await supabase.from("cities").insert({
+                name:cityName, state:stateCode, lat:latitude, lng:longitude,
+              }).select().single();
+              if (saved) exactCity = saved;
+            }
+          }
+        }
+
+        // Use exact city from Nominatim, or fall back to closest in DB
+        if (exactCity) {
+          setCities([exactCity]);
+          setSelectedCity(exactCity);
+          await loadNeighborhoodsForCity(exactCity, { lat:latitude, lng:longitude });
+        } else if (allCities.length) {
+          const withDist = allCities.map(c=>({...c,dist:distanceMiles(latitude,longitude,c.lat,c.lng)})).sort((a,b)=>a.dist-b.dist);
+          const nearby = withDist.slice(0,10);
+          setCities(nearby);
+          const closest = nearby[0];
+          setSelectedCity(closest);
+          await loadNeighborhoodsForCity(closest, { lat:latitude, lng:longitude });
+        } else {
+          setPhase("manual");
+        }
       },
       () => setPhase("manual"),
       { timeout:5000, maximumAge:60000 }
