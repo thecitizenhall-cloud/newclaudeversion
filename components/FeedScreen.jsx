@@ -410,13 +410,14 @@ export default function FeedScreen({ onNavigate }) {
   const [newPostIds,   setNewPostIds]   = useState([]);
   const [newIssueIds,  setNewIssueIds]  = useState([]);
   const [currentUser,  setCurrentUser]  = useState(null);
-  const [neighborhood,   setNeighborhood]   = useState("Riverdale");
+  const [neighborhood,   setNeighborhood]   = useState("My Neighborhood");
   const [neighborhoodId,  setNeighborhoodId]  = useState(null);
   const [showIssues,   setShowIssues]   = useState(false); // mobile civic sheet
   const [loadError,    setLoadError]    = useState(null);
   const [isOffline,    setIsOffline]    = useState(false);
   const toastTimer  = useRef(null);
   const channelRef  = useRef(null);
+  const hoodIdRef   = useRef(null);
 
   function showToast(msg) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -429,7 +430,7 @@ export default function FeedScreen({ onNavigate }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCurrentUser(user);
-        const hood = user.user_metadata?.neighborhood || "Riverdale";
+        const hood = user.user_metadata?.neighborhood || "My Neighborhood";
         setNeighborhood(hood);
         // Fetch the neighborhood_id for filtering
         const { data: prof } = await supabase
@@ -440,6 +441,7 @@ export default function FeedScreen({ onNavigate }) {
         const hoodId = prof?.neighborhood_id || null;
         console.log("profile neighborhood_id:", hoodId);
         setNeighborhoodId(hoodId);
+        hoodIdRef.current = hoodId;
         await loadPosts(user, hoodId);
       } else {
         await loadPosts(null, null);
@@ -454,7 +456,7 @@ export default function FeedScreen({ onNavigate }) {
         const { data } = await supabase.from("posts").select("*, profiles(display_name,neighborhood)").eq("id", payload.new.id).single();
         if (data) {
           // Only add to feed if it belongs to this user's neighborhood
-          if (neighborhoodId && data.neighborhood_id && data.neighborhood_id !== neighborhoodId) return;
+          if (hoodIdRef.current && data.neighborhood_id && data.neighborhood_id !== hoodIdRef.current) return;
           setPosts(prev => [data, ...prev]);
           setNewPostIds(ids => [...ids, data.id]);
           setTimeout(() => setNewPostIds(ids => ids.filter(i=>i!==data.id)), 1500);
@@ -487,8 +489,7 @@ export default function FeedScreen({ onNavigate }) {
       .order("created_at", { ascending:false })
       .limit(50);
 
-    console.log("loadPosts:", data?.length, "posts, error:", error?.message, error?.code, error?.details);
-    if (error) { setLoadError(error.message || "Failed to load posts"); return; }
+    console.log("loadPosts:", data?.length, "posts, error:", error?.message);
     if (!data) return;
     if (user && data.length) {
       const { data: upvotes } = await supabase.from("post_upvotes").select("post_id").eq("user_id", user.id).in("post_id", data.map(p=>p.id));
@@ -544,7 +545,8 @@ export default function FeedScreen({ onNavigate }) {
 
   async function handleEscalate(post) {
     const title = post.body.length>100 ? post.body.slice(0,100)+"…" : post.body;
-    const { data: issue, error } = await supabase.from("civic_issues").insert({ source_post_id:post.id, title, status:"escalated", voice_count:0, priority_pct:5, source_label:`Escalated · ${post.profiles?.display_name||"Resident"}` }).select().single();
+    const { data: profEsc } = await supabase.from("profiles").select("neighborhood_id").eq("id", currentUser?.id).single();
+    const { data: issue, error } = await supabase.from("civic_issues").insert({ source_post_id:post.id, neighborhood_id:profEsc?.neighborhood_id||null, title, status:"escalated", voice_count:0, priority_pct:5, source_label:`Escalated · ${post.profiles?.display_name||"Resident"}` }).select().single();
     if (error) { showToast("Escalation failed"); return; }
     await supabase.from("posts").update({ escalated:true, escalated_issue_id:issue.id }).eq("id", post.id);
     const num = issues.length + 1;
