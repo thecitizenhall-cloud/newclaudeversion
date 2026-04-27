@@ -36,7 +36,7 @@ function GatePage({ onUnlock }) {
 
   function submit() {
     if (BETA_CODE && code.trim().toLowerCase() === BETA_CODE.trim().toLowerCase()) {
-      try { sessionStorage.setItem("th_unlocked","1"); } catch(e) {}
+      try { localStorage.setItem("th_unlocked","1"); } catch(e) {}
       onUnlock();
     } else {
       setError("Incorrect code.");
@@ -164,7 +164,7 @@ export default function Home() {
   const [mounted,      setMounted]      = useState(false);
   const [screen,       setScreen]       = useState("loading");
   const [user,         setUser]         = useState(null);
-  const [neighborhood, setNeighborhood] = useState("Riverdale");
+  const [neighborhood, setNeighborhood] = useState("My Neighborhood");
   const [isMobile,     setIsMobile]     = useState(false);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [authError,    setAuthError]    = useState(null);
@@ -181,7 +181,7 @@ export default function Home() {
     // Step 3: beta gate — check sessionStorage
     if (BETA_CODE) {
       let unlocked = false;
-      try { unlocked = sessionStorage.getItem("th_unlocked") === "1"; } catch(e) {}
+      try { unlocked = localStorage.getItem("th_unlocked") === "1"; } catch(e) {}
       if (!unlocked) {
         setScreen("gate");
         return () => window.removeEventListener("resize", checkMobile);
@@ -214,7 +214,7 @@ export default function Home() {
           return;
         }
 
-        setNeighborhood(prof?.neighborhood || session.user.user_metadata?.neighborhood || "Riverdale");
+        setNeighborhood(prof?.neighborhood || session.user.user_metadata?.neighborhood || "My Neighborhood");
         setScreen("feed");
 
         // Show walkthrough on first login
@@ -246,9 +246,9 @@ export default function Home() {
             setScreen("onboarding");
             return;
           }
-          setNeighborhood(prof.neighborhood || "Riverdale");
+          setNeighborhood(prof.neighborhood || "My Neighborhood");
         } else {
-          setNeighborhood(session.user.user_metadata?.neighborhood || "Riverdale");
+          setNeighborhood(session.user.user_metadata?.neighborhood || "My Neighborhood");
         }
         setScreen("feed");
       } else {
@@ -280,7 +280,7 @@ export default function Home() {
       }
       if (session) {
         setUser(session.user);
-        setNeighborhood(session.user.user_metadata?.neighborhood || "Riverdale");
+        setNeighborhood(session.user.user_metadata?.neighborhood || "My Neighborhood");
         setScreen("feed");
       } else {
         setScreen("onboarding");
