@@ -280,10 +280,7 @@ function StepNeighborhood({ onNext }) {
         // Run DB lookup and Nominatim reverse geocode in parallel
         const [dbResult, nomResult] = await Promise.allSettled([
           supabase.from("cities").select("id,name,state,lat,lng"),
-          fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
-            { headers:{"User-Agent":"TownhallCafe/1.0 (hello@townhallcafe.org)"} }
-          ).then(r=>r.json()),
+          fetch(`/api/city-search?lat=${latitude}&lon=${longitude}`).then(r=>r.json()).then(d=>d.results?.[0]||d.results||{}),
         ]);
 
         const allCities = dbResult.status==="fulfilled" ? (dbResult.value.data||[]) : [];
@@ -291,7 +288,7 @@ function StepNeighborhood({ onNext }) {
         // Try to find exact city from Nominatim reverse geocode
         let exactCity = null;
         if (nomResult.status==="fulfilled") {
-          const addr = nomResult.value?.address;
+          const addr = (Array.isArray(nomResult.value) ? nomResult.value[0] : nomResult.value)?.address;
           const cityName = addr?.city||addr?.town||addr?.village||addr?.hamlet||addr?.county;
           const stateCode = addr?.ISO3166_2_lvl4?.replace("US-","")||addr?.state_code||"";
           if (cityName && stateCode) {
@@ -380,9 +377,13 @@ function StepNeighborhood({ onNext }) {
     setSelectedHood(closest);
   }
 
+  const searchTimer = useRef(null);
   async function searchCities(query) {
     setCitySearch(query);
     if (query.length < 2) { setCities([]); return; }
+    // Debounce — wait 400ms after user stops typing before searching
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    await new Promise(resolve => { searchTimer.current = setTimeout(resolve, 400); });
     const [dbResult, nomResult] = await Promise.allSettled([
       supabase.from("cities").select("id,name,state,lat,lng").ilike("name",`%${query}%`).order("name").limit(15),
       fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query+", USA")}&format=json&addressdetails=1&limit=10&featuretype=city`,
@@ -623,6 +624,12 @@ function StepWelcome({ user, hood, onComplete }) {
 
   async function handleEnter() {
     setSaving(true);
+    // Set a timeout so "Setting up" never gets stuck forever
+    const timeout = setTimeout(() => {
+      setSaving(false);
+      if (onComplete) onComplete();
+    }, 8000);
+
     try {
       await supabase.auth.updateUser({
         data: { display_name:user.name, neighborhood:hood.name, neighborhood_id:hood.id },
@@ -635,9 +642,13 @@ function StepWelcome({ user, hood, onComplete }) {
           updated_at:new Date().toISOString(),
         }).eq("id",authUser.id);
       }
-    } catch(e) { console.error("save error:",e); }
-    setSaving(false);
-    if (onComplete) onComplete();
+    } catch(e) {
+      console.error("save error:",e);
+    } finally {
+      clearTimeout(timeout);
+      setSaving(false);
+      if (onComplete) onComplete();
+    }
   }
 
   return (
