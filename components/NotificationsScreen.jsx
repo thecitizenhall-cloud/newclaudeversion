@@ -3,14 +3,12 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import ApplyOfficial from "./ApplyOfficial";
 
-// Inject component CSS safely — client only, no hydration mismatch
 function useCSS(id, css) {
   if (typeof window === "undefined") return;
   let el = document.getElementById(id);
   if (!el) { el = document.createElement("style"); el.id = id; document.head.appendChild(el); }
   el.textContent = css;
 }
-
 
 const T = {
   bg:         "#0F0E0C",
@@ -70,7 +68,6 @@ const css = `
     .sidebar, .settings-panel { display:none; }
   }
 
-  /* ── Topbar ── */
   .topbar { grid-column:1/-1; background:${T.surface}; border-bottom:1px solid ${T.border}; display:flex; align-items:center; padding:0 20px; gap:12px; height:52px; }
   .logo { display:flex;align-items:center;gap:9px; font-family:'DM Serif Display',serif; font-size:16px;color:${T.cream};flex-shrink:0; }
   .logo-mark { width:26px;height:26px;border:1.5px solid ${T.amber}; border-radius:6px;display:flex;align-items:center;justify-content:center; }
@@ -85,7 +82,6 @@ const css = `
   .notif-ping { position:absolute;top:-4px;right:-4px; width:16px;height:16px;border-radius:50%; background:${T.amber};opacity:0.4; animation:notifPing 1.4s ease infinite; }
   .avatar { width:30px;height:30px;border-radius:8px; background:${T.amberLo};border:1px solid ${T.amberMid}; display:flex;align-items:center;justify-content:center; font-family:'DM Serif Display',serif;font-size:12px;color:${T.amberHi}; cursor:pointer; }
 
-  /* ── Sidebar ── */
   .sidebar { background:${T.surface};border-right:1px solid ${T.border};padding:16px 0;overflow-y:auto; }
   .sidebar-section { padding:4px 16px 2px;font-size:10px;font-weight:500;color:${T.creamFaint};text-transform:uppercase;letter-spacing:0.1em;margin-top:12px; }
   .nav-item { display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;font-size:13px;color:${T.creamDim};transition:all 0.15s;border-left:2px solid transparent; }
@@ -96,13 +92,11 @@ const css = `
   .badge-amber{background:${T.amberLo};border:1px solid ${T.amberMid};color:${T.amberHi};}
   .badge-teal {background:${T.tealLo};border:1px solid ${T.teal}44;color:${T.tealHi};}
 
-  /* ── Tabs ── */
   .tab-bar { display:flex;border-bottom:1px solid ${T.border};background:${T.bg};position:sticky;top:0;z-index:9; }
   .tab-item { padding:11px 20px;font-size:13px;color:${T.creamDim};cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap; }
   .tab-item:hover{color:${T.cream};}
   .tab-item.active{color:${T.tealHi};border-bottom-color:${T.teal};}
 
-  /* ── Main ── */
   .main { overflow-y:auto;display:flex;flex-direction:column;background:${T.bg}; }
 
   .notif-header { padding:16px 22px 14px;border-bottom:1px solid ${T.border}; position:sticky;top:0;background:${T.bg};z-index:10; display:flex;align-items:flex-start;justify-content:space-between;gap:12px; }
@@ -137,7 +131,6 @@ const css = `
   .notif-action:hover{border-color:${T.borderHi};color:${T.cream};}
   .notif-action.primary{background:${T.tealLo};border-color:${T.teal}44;color:${T.tealHi};}
 
-  /* ── City Rollup ── */
   .rollup-header { padding:16px 22px 14px;border-bottom:1px solid ${T.border}; position:sticky;top:0;background:${T.bg};z-index:10; }
   .rollup-title{font-family:'DM Serif Display',serif;font-size:20px;color:${T.cream};}
   .rollup-title em{font-style:italic;color:${T.blueHi};}
@@ -177,7 +170,6 @@ const css = `
   .awaiting-resp{border-top:1px solid ${T.border};padding:10px 16px;display:flex;align-items:center;gap:8px;font-size:11px;color:${T.creamFaint};}
   .pulse-dot{width:6px;height:6px;border-radius:50%;background:${T.amberHi};animation:pulse 1.4s ease infinite;flex-shrink:0;}
 
-  /* ── Settings panel ── */
   .settings-panel { background:${T.surface};border-left:1px solid ${T.border};display:flex;flex-direction:column;overflow-y:auto; }
   .settings-header{padding:14px 18px 12px;border-bottom:1px solid ${T.border};position:sticky;top:0;background:${T.surface};z-index:5;}
   .settings-title{font-family:'DM Serif Display',serif;font-size:16px;color:${T.cream};margin-bottom:2px;}
@@ -195,7 +187,6 @@ const css = `
   .live-num{font-family:'DM Serif Display',serif;font-size:22px;color:${T.cream};transition:all 0.4s;}
   .live-label{font-size:11px;color:${T.creamDim};}
 
-  /* ── Official onboard card ── */
   .official-onboard-card{background:${T.bg};border:1px solid ${T.teal}44;border-radius:10px;overflow:hidden;}
   .official-onboard-header{background:${T.tealLo};padding:12px 14px;border-bottom:1px solid ${T.teal}22;font-size:13px;font-weight:500;color:${T.tealHi};display:flex;align-items:center;gap:8px;}
   .official-onboard-body{padding:14px;}
@@ -207,12 +198,10 @@ const css = `
   .invite-official-btn{width:100%;padding:10px;border-radius:8px;background:${T.teal};border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;margin-top:12px;}
   .invite-official-btn:hover{opacity:0.9;}
 
-  /* ── Mobile bottom sheet for ApplyOfficial ── */
   .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;animation:fadeIn 0.2s ease;}
   .sheet-panel{position:fixed;left:0;right:0;bottom:0;background:${T.surface};border-radius:16px 16px 0 0;border-top:1px solid ${T.border};max-height:90vh;overflow-y:auto;z-index:101;animation:slideUp 0.3s ease;}
   .sheet-handle{width:36px;height:4px;border-radius:99px;background:${T.border};margin:12px auto 0;}
 
-  /* ── Misc ── */
   .th-empty{text-align:center;padding:40px 20px;color:${T.creamFaint};font-size:13px;line-height:1.8;}
   .th-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 20px;color:${T.creamDim};font-size:13px;}
   .th-spinner{width:16px;height:16px;border:2px solid ${T.border};border-top-color:${T.amber};border-radius:50%;animation:spin 0.8s linear infinite;}
@@ -228,28 +217,13 @@ const NOTIF_PREFS = [
   { id:"official",  icon:"↩", iconBg:T.tealLo,   iconColor:T.tealHi,   label:"Official responses", desc:"When an official responds to a city issue" },
   { id:"escalated", icon:"◈", iconBg:T.blueLo,   iconColor:T.blueHi,   label:"Issue escalations",  desc:"When a post you upvoted becomes a civic issue" },
   { id:"trust",     icon:"↑", iconBg:T.amberLo,  iconColor:T.amberHi,  label:"Trust milestones",   desc:"When you reach a new reputation tier" },
-  { id:"rollup",    icon:"⊕", iconBg:T.surface,  iconColor:T.creamDim, label:"City-wide rollup",    desc:"When a neighborhood issue enters the city tracker" },
+  { id:"rollup",    icon:"⊕", iconBg:T.surface,  iconColor:T.creamDim, label:"City-wide rollup",   desc:"When a neighborhood issue enters the city tracker" },
 ];
 
-const CITY_ISSUES = [
-  { id:1, rank:1, title:"Main St corridor traffic signalling overhaul", hoods:["Riverdale","Midtown","Northbank"], totalVoices:847, pct:91, status:"responded", official:{ initials:"RD", name:"Councillor R. Delgado", role:"District 4 · Transport committee" }, response:"The signal timing study has been commissioned and will report by Oct 14. We've allocated emergency interim funding for manual crossing guards at the three highest-risk intersections starting Monday.", respTime:"2h ago" },
-  { id:2, rank:2, title:"Affordable housing density — R2 to C1 rezoning review", hoods:["Eastside","Hillcrest","Westbridge"], totalVoices:612, pct:78, status:"awaiting", official:null, response:null, respTime:null },
-  { id:3, rank:3, title:"City parks lighting — safety infrastructure budget", hoods:["Riverdale","Parkside","Southline"], totalVoices:489, pct:64, status:"responded", official:{ initials:"KM", name:"Dir. K. Moore", role:"Parks & Recreation Dept" }, response:"Lighting upgrades have been moved forward to Q2 of next fiscal year pending council approval.", respTime:"Yesterday" },
-  { id:4, rank:4, title:"Elm St construction overrun — contractor accountability", hoods:["Riverdale","Midtown"], totalVoices:334, pct:51, status:"awaiting", official:null, response:null, respTime:null },
-];
-
-const HOODS = [
-  { id:"rv", name:"Riverdale",  issues:7,  residents:1240, heat:T.amber,  pct:72 },
-  { id:"mt", name:"Midtown",    issues:12, residents:3100, heat:T.coral,  pct:88 },
-  { id:"es", name:"Eastside",   issues:4,  residents:890,  heat:T.blue,   pct:45 },
-  { id:"hc", name:"Hillcrest",  issues:6,  residents:1050, heat:T.purple, pct:61 },
-  { id:"nb", name:"Northbank",  issues:9,  residents:2200, heat:T.teal,   pct:79 },
-  { id:"sl", name:"Southline",  issues:3,  residents:670,  heat:T.green,  pct:38 },
-  { id:"wb", name:"Westbridge", issues:8,  residents:1800, heat:T.amber,  pct:66 },
-  { id:"pk", name:"Parkside",   issues:5,  residents:940,  heat:T.blue,   pct:53 },
-];
+const HEAT_COLORS = [T.amber, T.coral, T.blue, T.purple, T.teal, T.green, T.amberHi, T.blueHi];
 
 function timeAgo(d) {
+  if (!d) return "";
   const s = Math.floor((Date.now()-new Date(d))/1000);
   if (s<60) return "just now";
   if (s<3600) return `${Math.floor(s/60)}m ago`;
@@ -283,8 +257,8 @@ function NotifItem({ n, onRead, idx }) {
 }
 
 function CityIssueCard({ issue, idx }) {
-  const [expanded, setExpanded] = useState(issue.status==="responded"&&idx===0);
-  const hoodColors = [T.amber,T.blue,T.purple,T.teal,T.coral];
+  const [expanded, setExpanded] = useState(issue.status==="responded" && idx===0);
+  const hoodColors = [T.amber, T.blue, T.purple, T.teal, T.coral];
   return (
     <div className={`city-issue${issue.status==="responded"?" responded":""}`}
       onClick={()=>setExpanded(e=>!e)} style={{ animationDelay:`${idx*0.06}s` }}>
@@ -293,16 +267,16 @@ function CityIssueCard({ issue, idx }) {
         <div className="city-issue-title">{issue.title}</div>
       </div>
       <div className="city-issue-meta">
-        {issue.hoods.map((h,i)=>(
-          <span key={h} className="hood-chip" style={{ background:hoodColors[i]+"22", color:hoodColors[i], border:`1px solid ${hoodColors[i]}44` }}>{h}</span>
+        {(issue.hoods||[]).map((h,i)=>(
+          <span key={h} className="hood-chip" style={{ background:hoodColors[i%hoodColors.length]+"22", color:hoodColors[i%hoodColors.length], border:`1px solid ${hoodColors[i%hoodColors.length]}44` }}>{h}</span>
         ))}
-        <span style={{ marginLeft:"auto",fontSize:11,color:T.creamFaint }}>{issue.totalVoices.toLocaleString()} voices</span>
+        <span style={{ marginLeft:"auto",fontSize:11,color:T.creamFaint }}>{(issue.totalVoices||0).toLocaleString()} voices</span>
       </div>
       <div className="city-issue-bar-row">
-        <div className="city-bar-bg"><div className="city-bar-fill" style={{ "--w":`${issue.pct}%`,width:`${issue.pct}%`,background:issue.pct>75?T.coral:issue.pct>50?T.amber:T.blue }}/></div>
-        <span className="city-bar-stat">{issue.pct}% priority</span>
+        <div className="city-bar-bg"><div className="city-bar-fill" style={{ "--w":`${issue.pct||0}%`,width:`${issue.pct||0}%`,background:issue.pct>75?T.coral:issue.pct>50?T.amber:T.blue }}/></div>
+        <span className="city-bar-stat">{issue.pct||0}% priority</span>
       </div>
-      {issue.status==="responded"&&expanded&&issue.official&&(
+      {issue.status==="responded" && expanded && issue.official && (
         <div className="official-resp">
           <div className="official-av">{issue.official.initials}</div>
           <div style={{ flex:1 }}>
@@ -313,7 +287,7 @@ function CityIssueCard({ issue, idx }) {
           </div>
         </div>
       )}
-      {issue.status==="awaiting"&&(
+      {issue.status==="awaiting" && (
         <div className="awaiting-resp"><div className="pulse-dot"/>Awaiting official response — visible to district representatives</div>
       )}
     </div>
@@ -322,18 +296,21 @@ function CityIssueCard({ issue, idx }) {
 
 export default function NotificationsScreen() {
   useCSS("notificationsscreen-css", css);
-  const [tab,          setTab]          = useState("notifications");
-  const [notifs,       setNotifs]       = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [prefs,        setPrefs]        = useState({ expert:true, official:true, escalated:true, trust:false, rollup:false });
-  const [push,         setPush]         = useState(true);
-  const [digest,       setDigest]       = useState("realtime");
-  const [activeHood,   setActiveHood]   = useState(null);
-  const [toast,        setToast]        = useState(null);
-  const [liveStats,    setLiveStats]    = useState({ voices:3847, issues:49, responses:8, experts:4 });
-  const [currentUser,  setCurrentUser]  = useState(null);
-  const [neighborhood, setNeighborhood] = useState("Riverdale");
-  const [showOfficial, setShowOfficial] = useState(false);
+  const [tab,               setTab]               = useState("notifications");
+  const [notifs,            setNotifs]            = useState([]);
+  const [cityIssues,        setCityIssues]        = useState([]);
+  const [hoods,             setHoods]             = useState([]);
+  const [loadingNotifs,     setLoadingNotifs]     = useState(true);
+  const [loadingRollup,     setLoadingRollup]     = useState(true);
+  const [prefs,             setPrefs]             = useState({ expert:true, official:true, escalated:true, trust:false, rollup:false });
+  const [push,              setPush]              = useState(true);
+  const [digest,            setDigest]            = useState("realtime");
+  const [activeHood,        setActiveHood]        = useState(null);
+  const [toast,             setToast]             = useState(null);
+  const [liveStats,         setLiveStats]         = useState({ voices:0, issues:0, responses:0, experts:0 });
+  const [currentUser,       setCurrentUser]       = useState(null);
+  const [neighborhood,      setNeighborhood]      = useState("Your neighborhood");
+  const [showOfficial,      setShowOfficial]      = useState(false);
   const [officialAppStatus, setOfficialAppStatus] = useState(null);
   const toastTimer = useRef(null);
   const channelRef = useRef(null);
@@ -344,13 +321,120 @@ export default function NotificationsScreen() {
     toastTimer.current = setTimeout(() => setToast(null), 2800);
   }
 
+  // ── Load city issues from Supabase ──────────────────────────────────────
+  async function loadCityIssues() {
+    setLoadingRollup(true);
+    try {
+      const { data: issues } = await supabase
+        .from("civic_issues")
+        .select(`
+          id, title, voice_count, priority_pct, status,
+          official_response, responded_at,
+          neighborhood_id,
+          neighborhoods ( name ),
+          profiles ( display_name, official_title, official_district )
+        `)
+        .neq("status", "resolved")
+        .order("priority_pct", { ascending: false })
+        .limit(20);
+
+      const { data: hoodsData } = await supabase
+        .from("neighborhoods")
+        .select("id, name, resident_count")
+        .order("name");
+
+      // Count issues per neighborhood
+      const issueCounts = {};
+      (issues || []).forEach(iss => {
+        const nid = iss.neighborhood_id;
+        if (nid) issueCounts[nid] = (issueCounts[nid] || 0) + 1;
+      });
+
+      const mappedHoods = (hoodsData || []).map((h, i) => ({
+        id:        h.id,
+        name:      h.name,
+        issues:    issueCounts[h.id] || 0,
+        residents: h.resident_count || 0,
+        heat:      HEAT_COLORS[i % HEAT_COLORS.length],
+        pct:       h.resident_count
+                     ? Math.min(99, Math.round((issueCounts[h.id] || 0) / h.resident_count * 100 * 10))
+                     : 0,
+      }));
+      setHoods(mappedHoods);
+
+      const mappedIssues = (issues || []).map((iss, i) => {
+        const hasResponse = iss.official_response && iss.profiles;
+        const officialName = iss.profiles?.display_name || null;
+        const officialRole = [iss.profiles?.official_title, iss.profiles?.official_district].filter(Boolean).join(" · ");
+        return {
+          id:          iss.id,
+          rank:        i + 1,
+          title:       iss.title,
+          hoods:       iss.neighborhoods ? [iss.neighborhoods.name] : [],
+          totalVoices: iss.voice_count || 0,
+          pct:         iss.priority_pct || 0,
+          status:      hasResponse ? "responded" : "awaiting",
+          official:    hasResponse ? {
+            initials: initials(officialName),
+            name:     officialName,
+            role:     officialRole,
+          } : null,
+          response:  iss.official_response || null,
+          respTime:  iss.responded_at ? timeAgo(iss.responded_at) : null,
+        };
+      });
+      setCityIssues(mappedIssues);
+
+      // Live stats
+      const responded = mappedIssues.filter(i => i.status === "responded").length;
+      const totalVoices = mappedIssues.reduce((sum, i) => sum + i.totalVoices, 0);
+      setLiveStats(s => ({ ...s, voices: totalVoices, issues: mappedIssues.length, responses: responded }));
+
+    } catch(e) {
+      console.error("loadCityIssues error:", e);
+    } finally {
+      setLoadingRollup(false);
+    }
+  }
+
+  // ── Persist prefs to Supabase ───────────────────────────────────────────
+  async function upsertPrefs(newPrefs, newPush, newDigest) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("profiles").update({
+      notification_prefs: { ...newPrefs, push: newPush, digest: newDigest },
+      updated_at: new Date().toISOString(),
+    }).eq("id", user.id);
+  }
+
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCurrentUser(user);
-        setNeighborhood(user.user_metadata?.neighborhood || "Riverdale");
-        // Check if already applied as official
+        setNeighborhood(user.user_metadata?.neighborhood || "Your neighborhood");
+
+        // Load profile prefs
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("notification_prefs")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (prof?.notification_prefs) {
+          const p = prof.notification_prefs;
+          setPrefs({
+            expert:   p.expert   ?? true,
+            official: p.official ?? true,
+            escalated:p.escalated?? true,
+            trust:    p.trust    ?? false,
+            rollup:   p.rollup   ?? false,
+          });
+          if (p.push    !== undefined) setPush(p.push);
+          if (p.digest  !== undefined) setDigest(p.digest);
+        }
+
+        // Check official application status
         const { data: app } = await supabase
           .from("official_applications")
           .select("status")
@@ -358,15 +442,16 @@ export default function NotificationsScreen() {
           .maybeSingle();
         if (app) setOfficialAppStatus(app.status);
       }
+
       await loadNotifs();
-      setLoading(false);
+      await loadCityIssues();
     }
     init();
 
     // Live stats ticker
     const ticker = setInterval(() => {
-      setLiveStats(s => ({ ...s, voices: s.voices + Math.floor(Math.random()*3) }));
-    }, 4000);
+      setLiveStats(s => ({ ...s, voices: s.voices + Math.floor(Math.random()*2) }));
+    }, 5000);
 
     // Real-time notifications
     channelRef.current = supabase
@@ -404,12 +489,14 @@ export default function NotificationsScreen() {
   }
 
   async function loadNotifs() {
+    setLoadingNotifs(true);
     const { data } = await supabase
       .from("notifications")
       .select("*")
       .order("created_at", { ascending:false })
       .limit(40);
     setNotifs((data||[]).map(formatNotif));
+    setLoadingNotifs(false);
   }
 
   async function markRead(id) {
@@ -426,23 +513,35 @@ export default function NotificationsScreen() {
   }
 
   function togglePref(id) {
-    setPrefs(p => ({ ...p, [id]:!p[id] }));
+    const newPrefs = { ...prefs, [id]: !prefs[id] };
+    setPrefs(newPrefs);
+    upsertPrefs(newPrefs, push, digest);
     showToast(`${NOTIF_PREFS.find(p=>p.id===id)?.label} ${prefs[id]?"off":"on"}`, T.tealHi);
+  }
+
+  function handleSetDigest(d) {
+    setDigest(d);
+    upsertPrefs(prefs, push, d);
+    showToast(`Digest set to ${d}`, T.tealHi);
+  }
+
+  function handleSetPush(val) {
+    setPush(val);
+    upsertPrefs(prefs, val, digest);
   }
 
   async function handleSignOut() { await supabase.auth.signOut(); }
 
-  const unreadCount = notifs.filter(n => !n.read).length;
-  const groups = ["today","yesterday","earlier"];
+  const unreadCount   = notifs.filter(n => !n.read).length;
+  const groups        = ["today","yesterday","earlier"];
   const filteredIssues = activeHood
-    ? CITY_ISSUES.filter(i => i.hoods.some(h => h.toLowerCase().includes(activeHood.toLowerCase())))
-    : CITY_ISSUES;
+    ? cityIssues.filter(i => (i.hoods||[]).some(h => h.toLowerCase().includes(activeHood.toLowerCase())))
+    : cityIssues;
 
   const userInit = initials(currentUser?.user_metadata?.display_name || currentUser?.email || "?");
 
-  // Group notifications by date
   function getGroup(dateStr) {
-    const d = new Date(dateStr);
+    const d   = new Date(dateStr);
     const now = new Date();
     const diff = Math.floor((now - d) / 86400000);
     if (diff < 1) return "today";
@@ -473,7 +572,7 @@ export default function NotificationsScreen() {
 
         {/* Sidebar */}
         <div className="sidebar">
-          <div className="sidebar-section">Sprint 4</div>
+          <div className="sidebar-section">Alerts</div>
           <div className={`nav-item${tab==="notifications"?" active":""}`} onClick={()=>setTab("notifications")}>
             <div className="nav-dot" style={{background:tab==="notifications"?T.teal:T.creamFaint}}/>
             Notifications
@@ -482,20 +581,22 @@ export default function NotificationsScreen() {
           <div className={`nav-item${tab==="rollup"?" active":""}`} onClick={()=>setTab("rollup")}>
             <div className="nav-dot" style={{background:tab==="rollup"?T.teal:T.creamFaint}}/>
             City-wide rollup
-            <span className="nav-badge badge-teal">{CITY_ISSUES.length}</span>
+            {cityIssues.length>0&&<span className="nav-badge badge-teal">{cityIssues.length}</span>}
           </div>
           <div className={`nav-item${tab==="officials"?" active":""}`} onClick={()=>setTab("officials")}>
             <div className="nav-dot" style={{background:tab==="officials"?T.teal:T.creamFaint}}/>
             Official responses
-            <span className="nav-badge badge-teal">{CITY_ISSUES.filter(i=>i.status==="responded").length}</span>
+            {cityIssues.filter(i=>i.status==="responded").length>0&&(
+              <span className="nav-badge badge-teal">{cityIssues.filter(i=>i.status==="responded").length}</span>
+            )}
           </div>
           <div className="sidebar-section">Navigation</div>
           {["Banter feed","Expert Q&A"].map(n=>(
             <div key={n} className="nav-item"><div className="nav-dot" style={{background:T.creamFaint}}/>{n}</div>
           ))}
           <div className="sidebar-section">Account</div>
-          <div className="nav-item" onClick={handleSignOut} style={{color:T.red}}>
-            <div className="nav-dot" style={{background:T.red}}/>Sign out
+          <div className="nav-item" onClick={handleSignOut} style={{color:"#C0392B"}}>
+            <div className="nav-dot" style={{background:"#C0392B"}}/>Sign out
           </div>
         </div>
 
@@ -516,27 +617,26 @@ export default function NotificationsScreen() {
                 <span className="digest-label">Digest</span>
                 <div className="digest-opts">
                   {["realtime","daily","weekly"].map(d=>(
-                    <div key={d} className={`digest-chip${digest===d?" sel":""}`}
-                      onClick={()=>{setDigest(d);showToast(`Digest set to ${d}`,T.tealHi);}}>
+                    <div key={d} className={`digest-chip${digest===d?" sel":""}`} onClick={()=>handleSetDigest(d)}>
                       {d.charAt(0).toUpperCase()+d.slice(1)}
                     </div>
                   ))}
                 </div>
                 <div className="push-toggle">
                   Push
-                  <div className={`toggle-track${push?" on":""}`} onClick={()=>setPush(p=>!p)}>
+                  <div className={`toggle-track${push?" on":""}`} onClick={()=>handleSetPush(!push)}>
                     <div className="toggle-thumb"/>
                   </div>
                 </div>
               </div>
 
-              {loading&&<div className="th-loading"><div className="th-spinner"/>Loading notifications…</div>}
+              {loadingNotifs&&<div className="th-loading"><div className="th-spinner"/>Loading notifications…</div>}
 
-              {!loading&&notifs.length===0&&(
+              {!loadingNotifs&&notifs.length===0&&(
                 <div className="th-empty">No notifications yet.<br/>Activity in your neighborhood will appear here.</div>
               )}
 
-              {!loading&&groups.map(group=>{
+              {!loadingNotifs&&groups.map(group=>{
                 const items = notifs.filter(n=>getGroup(n.created_at)===group);
                 if (!items.length) return null;
                 return(
@@ -556,19 +656,22 @@ export default function NotificationsScreen() {
                 <div className="rollup-title">{tab==="officials"?<><em>Official</em> responses</>:<><em>City-wide</em> rollup</>}</div>
                 <div className="rollup-sub">
                   {tab==="officials"
-                    ?`${CITY_ISSUES.filter(i=>i.status==="responded").length} responses · ${CITY_ISSUES.filter(i=>i.status==="awaiting").length} awaiting`
-                    :`${HOODS.length} neighborhoods · ${CITY_ISSUES.length} active issues`}
+                    ?`${cityIssues.filter(i=>i.status==="responded").length} responses · ${cityIssues.filter(i=>i.status==="awaiting").length} awaiting`
+                    :`${hoods.length} neighborhoods · ${cityIssues.length} active issues`}
                 </div>
               </div>
               <div className="tab-bar">
                 <div className={`tab-item${tab==="rollup"?" active":""}`} onClick={()=>setTab("rollup")}>All issues</div>
                 <div className={`tab-item${tab==="officials"?" active":""}`} onClick={()=>setTab("officials")}>
-                  Official responses ({CITY_ISSUES.filter(i=>i.status==="responded").length})
+                  Official responses ({cityIssues.filter(i=>i.status==="responded").length})
                 </div>
               </div>
-              {tab==="rollup"&&(
+
+              {loadingRollup&&<div className="th-loading"><div className="th-spinner"/>Loading city data…</div>}
+
+              {!loadingRollup&&tab==="rollup"&&(
                 <div className="city-grid">
-                  {HOODS.map((h,i)=>(
+                  {hoods.map((h,i)=>(
                     <div key={h.id} className={`hood-tile${activeHood===h.name?" active-hood":""}`}
                       style={{ animationDelay:`${i*0.04}s` }}
                       onClick={()=>setActiveHood(activeHood===h.name?null:h.name)}>
@@ -579,23 +682,28 @@ export default function NotificationsScreen() {
                       <div className="hood-tile-residents">{h.residents.toLocaleString()} residents</div>
                     </div>
                   ))}
+                  {hoods.length===0&&<div style={{gridColumn:"1/-1",padding:"20px 0"}} className="th-empty">No neighborhoods yet.</div>}
                 </div>
               )}
-              <div className="city-issue-list">
-                <div className="section-head">
-                  {activeHood
-                    ?<><span>{activeHood} issues</span><div className="section-head-line"/><span style={{color:T.creamFaint,cursor:"pointer",fontSize:11}} onClick={()=>setActiveHood(null)}>clear ×</span></>
-                    :<><span>All city-wide issues</span><div className="section-head-line"/></>}
+
+              {!loadingRollup&&(
+                <div className="city-issue-list">
+                  <div className="section-head">
+                    {activeHood
+                      ?<><span>{activeHood} issues</span><div className="section-head-line"/><span style={{color:T.creamFaint,cursor:"pointer",fontSize:11}} onClick={()=>setActiveHood(null)}>clear ×</span></>
+                      :<><span>All city-wide issues</span><div className="section-head-line"/></>}
+                  </div>
+                  {(tab==="officials"?cityIssues.filter(i=>i.status==="responded"):filteredIssues).map((issue,i)=>(
+                    <CityIssueCard key={issue.id} issue={issue} idx={i}/>
+                  ))}
+                  {filteredIssues.length===0&&<div className="th-empty">No issues yet.<br/>Escalate posts from the feed to create civic issues.</div>}
                 </div>
-                {(tab==="officials"?CITY_ISSUES.filter(i=>i.status==="responded"):filteredIssues).map((issue,i)=>(
-                  <CityIssueCard key={issue.id} issue={issue} idx={i}/>
-                ))}
-              </div>
+              )}
             </>
           )}
         </div>
 
-        {/* ── Settings + Official onboarding panel ── */}
+        {/* ── Settings panel ── */}
         <div className="settings-panel">
           <div className="settings-header">
             <div className="settings-title">Notifications</div>
@@ -608,16 +716,15 @@ export default function NotificationsScreen() {
               <div className="settings-section-label">City activity · live</div>
               <div className="live-grid">
                 {[
-                  { num:liveStats.voices,    label:"Voices today",        delta:"+12" },
-                  { num:liveStats.issues,    label:"Active issues",       delta:"+2"  },
-                  { num:liveStats.responses, label:"Official responses",  delta:"+1"  },
-                  { num:liveStats.experts,   label:"Experts online",      delta:""    },
+                  { num:liveStats.voices,    label:"Voices today"       },
+                  { num:liveStats.issues,    label:"Active issues"      },
+                  { num:liveStats.responses, label:"Official responses" },
+                  { num:liveStats.experts,   label:"Experts online"     },
                 ].map((s,i)=>(
                   <div key={i} className="live-stat">
                     <div className="live-num">{s.num.toLocaleString()}</div>
                     <div style={{flex:1}}>
                       <div className="live-label">{s.label}</div>
-                      {s.delta&&<div style={{fontSize:11,color:T.tealHi,display:"flex",alignItems:"center",gap:3}}><UpIcon color={T.tealHi}/>{s.delta}</div>}
                     </div>
                   </div>
                 ))}
@@ -633,7 +740,7 @@ export default function NotificationsScreen() {
                   <div style={{fontSize:13,color:T.cream}}>Mobile push</div>
                   <div style={{fontSize:11,color:T.creamDim}}>Receive alerts on your device</div>
                 </div>
-                <div className={`toggle-track${push?" on":""}`} onClick={()=>setPush(p=>!p)}>
+                <div className={`toggle-track${push?" on":""}`} onClick={()=>handleSetPush(!push)}>
                   <div className="toggle-thumb"/>
                 </div>
               </div>
@@ -656,7 +763,7 @@ export default function NotificationsScreen() {
               ))}
             </div>
 
-            {/* ── Official onboarding ── */}
+            {/* Official onboarding */}
             <div>
               <div className="settings-section-label">Phase 3 · official access</div>
               <div className="official-onboard-card">
@@ -665,8 +772,6 @@ export default function NotificationsScreen() {
                   Are you a government official?
                 </div>
                 <div className="official-onboard-body">
-
-                  {/* Already applied */}
                   {officialAppStatus === "pending" && (
                     <div style={{ fontSize:12,color:T.amberHi,background:T.amberLo,border:`1px solid ${T.amberMid}`,borderRadius:8,padding:"10px 12px",marginBottom:12,lineHeight:1.6 }}>
                       Your application is under review. You&apos;ll be notified once approved.
@@ -677,7 +782,6 @@ export default function NotificationsScreen() {
                       <CheckIcon color={T.tealHi}/> Your official account is verified and active.
                     </div>
                   )}
-
                   {officialAppStatus !== "approved" && (
                     <>
                       <div className="official-step">
@@ -696,10 +800,8 @@ export default function NotificationsScreen() {
                         <div className="official-step-num">4</div>
                         <div className="official-step-text">Your silence on issues is also visible — Townhall shows residents <strong>which officials have responded</strong> and which haven&apos;t.</div>
                       </div>
-                      <button
-                        className="invite-official-btn"
-                        onClick={() => setShowOfficial(true)}>
-                        {officialAppStatus === "pending" ? "View my application →" : "Apply as a verified official →"}
+                      <button className="invite-official-btn" onClick={()=>setShowOfficial(true)}>
+                        {officialAppStatus==="pending" ? "View my application →" : "Apply as a verified official →"}
                       </button>
                     </>
                   )}
@@ -711,7 +813,7 @@ export default function NotificationsScreen() {
         </div>
       </div>
 
-      {/* ── ApplyOfficial bottom sheet ── */}
+      {/* ApplyOfficial sheet */}
       {showOfficial && (
         <>
           <div className="sheet-backdrop" onClick={()=>setShowOfficial(false)}/>
@@ -720,7 +822,6 @@ export default function NotificationsScreen() {
             <ApplyOfficial
               onClose={()=>{
                 setShowOfficial(false);
-                // Refresh application status
                 supabase.auth.getUser().then(({data:{user}})=>{
                   if (!user) return;
                   supabase.from("official_applications").select("status").eq("user_id",user.id).maybeSingle()
