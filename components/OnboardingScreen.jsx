@@ -124,7 +124,9 @@ function StepAccount({ onNext }) {
   const [form,      setForm]      = useState({ first:"", last:"", email:"", password:"" });
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState("");
-  const [resetSent, setResetSent] = useState(false);
+  const [resetSent,   setResetSent]   = useState(false);
+  const [resendSent,  setResendSent]  = useState(false);
+  const [resending,   setResending]   = useState(false);
 
   const f = (k, v) => setForm(p => ({ ...p, [k]:v }));
   const validSignup = form.first && form.last && form.email.includes("@") && form.password.length >= 6;
@@ -142,8 +144,7 @@ function StepAccount({ onNext }) {
         if (data.session) {
           onNext({ name:`${form.first} ${form.last}`, email:form.email, initials:`${form.first[0]}${form.last[0]}`.toUpperCase() });
         } else {
-          setError("Check your email for a confirmation link, then sign in below.");
-          setMode("signin");
+          setMode("confirm");
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email:form.email, password:form.password });
@@ -157,6 +158,16 @@ function StepAccount({ onNext }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleResend() {
+    setResending(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: form.email,
+    });
+    setResending(false);
+    if (!error) setResendSent(true);
   }
 
   async function handleReset() {
@@ -179,7 +190,30 @@ function StepAccount({ onNext }) {
         <p className="th-step-sub">{mode==="signup" ? "Your civic identity — verified by place." : "Sign in to continue to your neighborhood."}</p>
       </div>
       <div className="th-body">
-        <div className="tab-row">
+        {mode==="confirm" && (
+          <div style={{background:"#0A2A1E",border:"1px solid #1D9E75",borderRadius:10,padding:"20px",textAlign:"center",marginBottom:16}}>
+            <div style={{fontSize:28,marginBottom:12}}>📬</div>
+            <div style={{fontFamily:"'DM Serif Display',serif",fontSize:18,color:T.cream,marginBottom:8}}>Check your email</div>
+            <div style={{fontSize:13,color:T.creamDim,lineHeight:1.7,marginBottom:16}}>
+              We sent a confirmation link to<br/>
+              <strong style={{color:T.cream}}>{form.email}</strong><br/>
+              Click it to confirm, then come back and sign in.
+            </div>
+            {resendSent ? (
+              <div style={{fontSize:13,color:T.greenHi,marginBottom:10}}>Confirmation email resent!</div>
+            ) : (
+              <button onClick={handleResend} disabled={resending}
+                style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:8,padding:"9px 20px",fontFamily:"'DM Sans',sans-serif",fontSize:13,color:T.creamDim,cursor:"pointer",marginBottom:10,width:"100%"}}>
+                {resending ? "Sending..." : "Resend confirmation email"}
+              </button>
+            )}
+            <button onClick={()=>{ setMode("signin"); setError(""); }}
+              style={{background:T.amber,border:"none",borderRadius:8,padding:"9px 20px",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,color:T.bg,cursor:"pointer",width:"100%"}}>
+              I confirmed — Sign in
+            </button>
+          </div>
+        )}
+        <div className="tab-row" style={{display:mode==="confirm"?"none":"flex"}}>
           <button className={`tab-btn${mode==="signup"?" active":""}`} onClick={()=>{ setMode("signup"); setError(""); setResetSent(false); }}>New account</button>
           <button className={`tab-btn${mode==="signin"?" active":""}`} onClick={()=>{ setMode("signin"); setError(""); setResetSent(false); }}>Sign in</button>
         </div>
