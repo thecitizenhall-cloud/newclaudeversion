@@ -521,8 +521,18 @@ export default function FeedScreen({ onNavigate }) {
     setPosts(data);
     // Load local news if feed is sparse
     if (data.length < 5) {
-      const cityName = user?.user_metadata?.neighborhood || neighborhood;
-      await loadNews(cityName);
+      try {
+        // Get city from neighborhood
+        const { data: hood } = await supabase.from("neighborhoods")
+          .select("city_id, cities(name, state)")
+          .eq("id", hoodId || "00000000-0000-0000-0000-000000000000")
+          .maybeSingle();
+        const cityName = hood?.cities?.name || neighborhood;
+        const cityState = hood?.cities?.state || "";
+        await loadNews(cityName, cityState);
+      } catch(e) {
+        await loadNews(neighborhood, "");
+      }
     }
   }
 
@@ -531,11 +541,12 @@ export default function FeedScreen({ onNavigate }) {
     setIssues((data||[]).map((iss,i) => ({...iss, issue_number:i+1})));
   }
 
-  async function loadNews(cityName) {
+  async function loadNews(cityName, cityState) {
     if (!cityName || cityName === "My Neighborhood") return;
     setNewsLoading(true);
     try {
-      const res = await fetch(`/api/local-news?city=${encodeURIComponent(cityName)}`);
+      const stateParam = cityState ? `&state=${encodeURIComponent(cityState)}` : "";
+      const res = await fetch(`/api/local-news?city=${encodeURIComponent(cityName)}${stateParam}`);
       const data = await res.json();
       setNewsCards(data.articles || []);
     } catch(e) {
