@@ -147,7 +147,7 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
         if (authError || !user) { setLoading(false); return; }
 
         const [profResult, hoodsResult, postsResult, answersResult] = await Promise.allSettled([
-          supabase.from("profiles").select("*").eq("id", user.id).single(),
+          supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
           supabase.from("neighborhoods").select("id, name").order("name"),
           supabase.from("posts").select("*", { count:"exact", head:true }).eq("author_id", user.id),
           supabase.from("expert_answers").select("*", { count:"exact", head:true }).eq("expert_id", user.id),
@@ -262,7 +262,7 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
       .select("id, name")
       .single();
     if (err && err.code === "23505") {
-      const { data: ex } = await supabase.from("neighborhoods").select("id, name").eq("slug", slug).single();
+      const { data: ex } = await supabase.from("neighborhoods").select("id, name").eq("slug", slug).maybeSingle();
       if (ex) { setForm(f => ({ ...f, neighborhood_id: ex.id })); setNeighborhoods(p => p.find(h => h.id === ex.id) ? p : [ex, ...p]); }
     } else if (data) {
       setForm(f => ({ ...f, neighborhood_id: data.id }));
