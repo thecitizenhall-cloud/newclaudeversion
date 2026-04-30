@@ -276,6 +276,26 @@ function StatusPill({ status }) {
 }
 
 // ── Post Card ─────────────────────────────────────────────────────────────
+function NewsCard({ article }) {
+  return (
+    <a href={article.url} target="_blank" rel="noopener noreferrer"
+      style={{ display:"block", padding:"14px 16px", borderBottom:`1px solid ${T.border}`, textDecoration:"none", transition:"background 0.15s" }}
+      onMouseEnter={e=>e.currentTarget.style.background=T.surfaceHi+"44"}
+      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+        <div style={{ width:28, height:28, borderRadius:7, background:T.blueLo, border:`1px solid ${T.blue}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, flexShrink:0 }}>📰</div>
+        <div>
+          <div style={{ fontSize:10, color:T.blueHi, fontWeight:500, textTransform:"uppercase", letterSpacing:"0.06em" }}>{article.source} · Local News</div>
+          <div style={{ fontSize:10, color:T.creamFaint }}>{new Date(article.publishedAt).toLocaleDateString()}</div>
+        </div>
+        <div style={{ marginLeft:"auto", fontSize:10, color:T.blueHi, opacity:0.7 }}>↗</div>
+      </div>
+      <div style={{ fontSize:13, color:T.cream, fontWeight:500, lineHeight:1.4, marginBottom:4 }}>{article.title}</div>
+      {article.summary && <div style={{ fontSize:12, color:T.creamDim, lineHeight:1.5 }}>{article.summary}</div>}
+    </a>
+  );
+}
+
 function FlagIcon({ color }) {
   return <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 1v9M2 1h6l-1.5 3L8 7H2" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
@@ -415,6 +435,8 @@ export default function FeedScreen({ onNavigate }) {
   const [showIssues,   setShowIssues]   = useState(false); // mobile civic sheet
   const [loadError,    setLoadError]    = useState(null);
   const [isOffline,    setIsOffline]    = useState(false);
+  const [newsCards,    setNewsCards]    = useState([]);
+  const [newsLoading,  setNewsLoading]  = useState(false);
   const toastTimer  = useRef(null);
   const channelRef  = useRef(null);
   const hoodIdRef   = useRef(null);
@@ -497,11 +519,29 @@ export default function FeedScreen({ onNavigate }) {
       data.forEach(p => { p.user_has_upvoted = set.has(p.id); });
     }
     setPosts(data);
+    // Load local news if feed is sparse
+    if (data.length < 5) {
+      const cityName = user?.user_metadata?.neighborhood || neighborhood;
+      await loadNews(cityName);
+    }
   }
 
   async function loadIssues() {
     const { data } = await supabase.from("civic_issues").select("*").neq("status","resolved").order("priority_pct", { ascending:false }).limit(20);
     setIssues((data||[]).map((iss,i) => ({...iss, issue_number:i+1})));
+  }
+
+  async function loadNews(cityName) {
+    if (!cityName || cityName === "My Neighborhood") return;
+    setNewsLoading(true);
+    try {
+      const res = await fetch(`/api/local-news?city=${encodeURIComponent(cityName)}`);
+      const data = await res.json();
+      setNewsCards(data.articles || []);
+    } catch(e) {
+      console.log("News load error:", e.message);
+    }
+    setNewsLoading(false);
   }
 
   async function handlePost() {
@@ -555,7 +595,7 @@ export default function FeedScreen({ onNavigate }) {
     setNewIssueIds(ids => [...ids, issue.id]);
     setTimeout(() => setNewIssueIds(ids => ids.filter(i=>i!==issue.id)), 2000);
     showToast(`Escalated as civic issue #${num}`);
-    if (isMobile) setShowIssues(true);
+    if (window.innerWidth < 768) setShowIssues(true);
   }
 
   async function handleIssueVote(issue) {
@@ -633,7 +673,23 @@ export default function FeedScreen({ onNavigate }) {
           )}
 
           {loading&&!loadError&&<div className="th-loading"><div className="th-spinner"/>Loading…</div>}
-          {!loading&&!loadError&&filtered.length===0&&<div className="th-empty">No posts yet in {neighborhood}.<br/>Be the first to share something.</div>}
+          {!loading&&!loadError&&filtered.length===0&&(
+            <>
+              <div className="th-empty" style={{paddingBottom:8}}>No posts yet in {neighborhood}.<br/>Be the first to share something.</div>
+              {newsCards.length > 0 && (
+                <div style={{borderTop:`1px solid ${T.border}`}}>
+                  <div style={{padding:"10px 16px 6px",fontSize:10,fontWeight:500,color:T.creamFaint,textTransform:"uppercase",letterSpacing:"0.08em"}}>Local news from your area</div>
+                  {newsCards.map((a,i) => <NewsCard key={i} article={a}/>)}
+                </div>
+              )}
+            </>
+          )}
+          {!loading&&!loadError&&filtered.length>0&&filtered.length<5&&newsCards.length>0&&(
+            <div style={{borderTop:`1px solid ${T.border}`,marginTop:8}}>
+              <div style={{padding:"10px 16px 6px",fontSize:10,fontWeight:500,color:T.creamFaint,textTransform:"uppercase",letterSpacing:"0.08em"}}>Local news from your area</div>
+              {newsCards.map((a,i) => <NewsCard key={i} article={a}/>)}
+            </div>
+          )}
           {!loading&&filtered.map(post=>(
             <PostCard key={post.id} post={post} currentUserId={currentUser?.id}
               onVote={handleVote} onEscalate={handleEscalate} isNew={newPostIds.includes(post.id)}/>
