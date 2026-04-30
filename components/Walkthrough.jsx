@@ -240,22 +240,27 @@ export default function Walkthrough({ onNavigate, onComplete }) {
   const isLast  = step === STEPS.length - 1;
 
   useEffect(() => {
-    if (current.target) {
-      const el = document.querySelector(current.target);
-      if (el) {
-        setRect(el.getBoundingClientRect());
-        el.scrollIntoView({ behavior:"smooth", block:"center" });
-      } else {
-        setRect(null);
-      }
-    } else {
-      setRect(null);
-    }
-
     // Navigate to the right tab if needed
     if (current.tab && onNavigate) {
       onNavigate(current.tab);
     }
+
+    // Wait for screen to render before querying target element
+    const delay = current.tab ? 400 : 50;
+    const timer = setTimeout(() => {
+      if (current.target) {
+        const el = document.querySelector(current.target);
+        if (el) {
+          setRect(el.getBoundingClientRect());
+          el.scrollIntoView({ behavior:"smooth", block:"center" });
+        } else {
+          setRect(null);
+        }
+      } else {
+        setRect(null);
+      }
+    }, delay);
+    return () => clearTimeout(timer);
   }, [step]);
 
   function next() {
