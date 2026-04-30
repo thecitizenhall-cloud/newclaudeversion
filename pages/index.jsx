@@ -242,7 +242,11 @@ export default function Home() {
   );
 
   if (screen==="gate")       return <GatePage onUnlock={handleGateUnlock}/>;
-  if (screen==="onboarding") return <OnboardingScreen onComplete={()=>setScreen("feed")}/>;
+  if (screen==="onboarding") return <OnboardingScreen onComplete={()=>{
+    setScreen("feed");
+    // Trigger walkthrough for new users coming through onboarding
+    try { if (!localStorage.getItem("th_walkthrough_done")) setTimeout(()=>setShowWalkthrough(true), 1000); } catch(e) {}
+  }}/>;
 
   const rawName = user?.user_metadata?.display_name;
   const userInit = initials(rawName&&rawName!=="undefined" ? rawName : (user?.email||"?"));
