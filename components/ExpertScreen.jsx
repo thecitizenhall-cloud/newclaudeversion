@@ -502,7 +502,7 @@ export default function ExpertScreen({ onNavigate }){
   const [showApply, setShowApply] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [profile,   setProfile]   = useState(null);
-  const [neighborhood,setNeighborhood]=useState("Riverdale");
+  const [neighborhood,setNeighborhood]=useState("My Neighborhood");
   const [toast,     setToast]     = useState(null);
   const [newQIds,   setNewQIds]   = useState([]);
   const toastTimer  = useRef(null);
@@ -516,15 +516,22 @@ export default function ExpertScreen({ onNavigate }){
 
   useEffect(()=>{
     async function init(){
-      const {data:{user}}=await supabase.auth.getUser();
-      if(user){
-        setCurrentUser(user);
-        setNeighborhood(user.user_metadata?.neighborhood||"Riverdale");
-        const {data:prof}=await supabase.from("profiles").select("*").eq("id",user.id).single();
-        if(prof){ setProfile(prof); setIsExpert(prof.is_expert||false); }
+      try {
+        const {data:{user}}=await supabase.auth.getUser();
+        if(user){
+          setCurrentUser(user);
+          setNeighborhood(user.user_metadata?.neighborhood||"My Neighborhood");
+          const {data:prof}=await supabase.from("profiles").select("*").eq("id",user.id).maybeSingle();
+          if(prof){ setProfile(prof); setIsExpert(prof.is_expert||false); }
+          await loadQuestions(user);
+        } else {
+          await loadQuestions(null);
+        }
+      } catch(e) {
+        console.error("ExpertScreen init error:", e);
+      } finally {
+        setLoading(false);
       }
-      await loadQuestions(user);
-      setLoading(false);
     }
     init();
 
