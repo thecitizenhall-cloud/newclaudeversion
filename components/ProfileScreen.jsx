@@ -187,17 +187,14 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
         .order("name")
         .limit(15),
 
-      fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ", USA")}&format=json&addressdetails=1&limit=10&featuretype=city`,
-        { headers: { "User-Agent": "TownhallCafe/1.0 (hello@townhallcafe.org)" } }
-      ).then(r => r.json())
+      fetch(`/api/city-search?q=${encodeURIComponent(query)}`).then(r => r.json()).then(d => d.results || [])
     ]);
 
     const dbCities = dbResult.status === "fulfilled" ? (dbResult.value.data || []) : [];
 
     let nominatimCities = [];
     if (nominatimResult.status === "fulfilled") {
-      nominatimCities = nominatimResult.value
+      nominatimCities = (nominatimResult.value || [])
         .filter(r => ["city","town","village","municipality","borough","hamlet"].includes(r.type) || r.addresstype === "city")
         .map(r => ({
           nominatim_id: r.place_id,
