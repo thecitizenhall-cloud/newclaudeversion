@@ -417,7 +417,7 @@ function IssuesPanel({ issues, onVote, newIssueIds }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
-export default function FeedScreen({ onNavigate }) {
+export default function FeedScreen({ onNavigate, initialCivicOpen = false }) {
   useCSS("feedscreen-css", css);
   const [posts,        setPosts]        = useState([]);
   const [issues,       setIssues]       = useState([]);
@@ -447,6 +447,11 @@ export default function FeedScreen({ onNavigate }) {
     toastTimer.current = setTimeout(() => setToast(null), 3000);
   }
 
+  // Open civic panel immediately if navigated via Civic tab
+  useEffect(() => {
+    if (initialCivicOpen && window.innerWidth < 768) setShowIssues(true);
+  }, [initialCivicOpen]);
+
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -459,7 +464,7 @@ export default function FeedScreen({ onNavigate }) {
           .from("profiles")
           .select("neighborhood_id")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
         const hoodId = prof?.neighborhood_id || null;
         console.log("profile neighborhood_id:", hoodId);
         setNeighborhoodId(hoodId);
@@ -475,7 +480,7 @@ export default function FeedScreen({ onNavigate }) {
 
     channelRef.current = supabase.channel("posts-rt")
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"posts" }, async (payload) => {
-        const { data } = await supabase.from("posts").select("*, profiles(display_name,neighborhood)").eq("id", payload.new.id).single();
+        const { data } = await supabase.from("posts").select("*, profiles(display_name,neighborhood)").eq("id", payload.new.id).maybeSingle();
         if (data) {
           // Only add to feed if it belongs to this user's neighborhood
           if (hoodIdRef.current && data.neighborhood_id && data.neighborhood_id !== hoodIdRef.current) return;
