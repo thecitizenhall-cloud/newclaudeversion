@@ -537,15 +537,15 @@ export default function ExpertScreen({ onNavigate }){
 
     channelRef.current=supabase.channel("expert-rt")
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"expert_questions"},async(payload)=>{
-        const {data}=await supabase.from("expert_questions").select("*, profiles(display_name,expert_org,is_expert), expert_answers(*, profiles(display_name,expert_org))").eq("id",payload.new.id).single();
+        const {data}=await supabase.from("expert_questions").select("*, profiles(display_name,expert_org,is_expert), expert_answers(*, profiles(display_name,expert_org))").eq("id",payload.new.id).maybeSingle();
         if(data){
-          setPosts(prev=>[{...data,answering:false,answerDraft:""},...prev]);
+          setQuestions(prev=>[{...data,answering:false,answerDraft:""},...prev]);
           setNewQIds(ids=>[...ids,data.id]);
           setTimeout(()=>setNewQIds(ids=>ids.filter(i=>i!==data.id)),1500);
         }
       })
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"expert_answers"},async(payload)=>{
-        const {data:ans}=await supabase.from("expert_answers").select("*, profiles(display_name,expert_org)").eq("id",payload.new.id).single();
+        const {data:ans}=await supabase.from("expert_answers").select("*, profiles(display_name,expert_org)").eq("id",payload.new.id).maybeSingle();
         if(ans){
           setQuestions(qs=>qs.map(q=>q.id===payload.new.question_id?{...q,expert_answers:[...(q.expert_answers||[]),ans]}:q));
         }
@@ -555,7 +555,7 @@ export default function ExpertScreen({ onNavigate }){
     return()=>{if(channelRef.current)channelRef.current.unsubscribe();};
   },[]);
 
-  function setPosts(fn){ setQuestions(fn); } // alias for realtime handler
+
 
   async function loadQuestions(user){
     const {data}=await supabase.from("expert_questions")
