@@ -561,7 +561,7 @@ export default function FeedScreen({ onNavigate }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { showToast("Please sign in"); setPosting(false); return; }
     // Get neighborhood_id from profile
-    const { data: prof } = await supabase.from("profiles").select("neighborhood_id").eq("id", user.id).single();
+    const { data: prof } = await supabase.from("profiles").select("neighborhood_id").eq("id", user.id).maybeSingle();
     const { error } = await supabase.from("posts").insert({
       author_id:       user.id,
       neighborhood_id: prof?.neighborhood_id || null,
@@ -596,7 +596,7 @@ export default function FeedScreen({ onNavigate }) {
 
   async function handleEscalate(post) {
     const title = post.body.length>100 ? post.body.slice(0,100)+"…" : post.body;
-    const { data: profEsc } = await supabase.from("profiles").select("neighborhood_id").eq("id", currentUser?.id).single();
+    const { data: profEsc } = await supabase.from("profiles").select("neighborhood_id").eq("id", currentUser?.id).maybeSingle();
     const { data: issue, error } = await supabase.from("civic_issues").insert({ source_post_id:post.id, neighborhood_id:profEsc?.neighborhood_id||null, title, status:"escalated", voice_count:0, priority_pct:5, source_label:`Escalated · ${post.profiles?.display_name||"Resident"}` }).select().single();
     if (error) { showToast("Escalation failed"); return; }
     await supabase.from("posts").update({ escalated:true, escalated_issue_id:issue.id }).eq("id", post.id);
