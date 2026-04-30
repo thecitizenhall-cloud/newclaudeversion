@@ -165,13 +165,17 @@ export default function Home() {
     initApp();
 
     const { data:{ subscription } } = supabase.auth.onAuthStateChange(async(_e, session) => {
+      // Ignore token refresh events — fire constantly, should not re-route
+      if (_e === "TOKEN_REFRESHED") return;
       if (session) {
         setUser(session.user);
         const { data:prof } = await supabase.from("profiles")
-          .select("neighborhood_id,neighborhood").eq("id",session.user.id).maybeSingle();
-        if (!prof?.neighborhood_id) { setScreen("onboarding"); return; }
-        setNeighborhood(prof.neighborhood||"My Neighborhood");
-        setScreen("feed");
+          .select("neighborhood_id,neighborhood,onboarded").eq("id",session.user.id).maybeSingle();
+        // Only route to onboarding if genuinely not set up (not a race condition)
+        if (!prof?.neighborhood_id && !prof?.onboarded) { setScreen("onboarding"); return; }
+        setNeighborhood(prof?.neighborhood||"My Neighborhood");
+        // Don't clobber screen if user is already navigating around the app
+        setScreen(s => (s === "loading" || s === "onboarding") ? "feed" : s);
       } else {
         setUser(null);
         setScreen("onboarding");
@@ -254,7 +258,7 @@ export default function Home() {
   const content = (
     <>
       {screen==="feed"    && <FeedScreen          onNavigate={navigate}/>}
-      {screen==="civic"   && <FeedScreen          onNavigate={navigate} initialView="civic"/>}
+      {screen==="civic"   && <FeedScreen          onNavigate={navigate} initialCivicOpen={true}/>}
       {screen==="expert"  && <ExpertScreen        onNavigate={navigate}/>}
       {screen==="alerts"  && <NotificationsScreen onNavigate={navigate}/>}
       {screen==="profile" && <ProfileScreen       onNavigate={navigate} onSignOut={handleSignOut}/>}
