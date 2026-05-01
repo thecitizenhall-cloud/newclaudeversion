@@ -126,7 +126,10 @@ function CityIssueCard({ issue, idx }) {
       onClick={() => setExpanded(e => !e)} style={{ animationDelay: idx * 0.06 + "s" }}>
       <div className="city-issue-top">
         <div className="city-issue-rank">#{issue.rank}</div>
-        <div className="city-issue-title">{issue.title}</div>
+        <div style={{flex:1}}>
+          <div className="city-issue-title">{issue.title}</div>
+          {issue.createdAt && <div style={{fontSize:10,color:T.creamFaint,marginTop:3}}>{timeAgo(issue.createdAt)}</div>}
+        </div>
       </div>
       <div className="city-issue-meta">
         {(issue.hoods || []).map((h, i) => (
@@ -247,11 +250,16 @@ export default function NotificationsScreen({ onNavigate }) {
   async function loadNotifs() {
     setLoadingNotifs(true);
     try {
-      const { data } = await supabase.from("notifications")
+      const { data, error } = await supabase.from("notifications")
         .select("*").order("created_at", { ascending: false }).limit(40);
+      if (error) throw error;
       setNotifs((data || []).map(formatNotif));
-    } catch (e) { console.error("loadNotifs error:", e); }
-    finally { setLoadingNotifs(false); }
+    } catch (e) {
+      console.error("loadNotifs error:", e);
+      // Show empty state rather than infinite spinner on error
+    } finally {
+      setLoadingNotifs(false);
+    }
   }
 
   async function loadCityIssues() {
@@ -280,6 +288,7 @@ export default function NotificationsScreen({ onNavigate }) {
         totalVoices: iss.voice_count || 0,
         pct: iss.priority_pct || 0,
         status: iss.status === "escalated" ? "awaiting" : iss.status,
+        createdAt: iss.created_at,
         official: null, response: null,
       })));
     } catch (e) { console.error("loadCityIssues error:", e); }
@@ -353,7 +362,7 @@ export default function NotificationsScreen({ onNavigate }) {
             {unreadCount > 0 && <button className="mark-all-btn" onClick={markAll}>Mark all read</button>}
           </div>
           <div className="digest-bar">
-            <span style={{ fontSize: 12, color: T.creamDim }}>Digest</span>
+            <span style={{ fontSize: 12, color: T.creamDim }}>Digest <span style={{fontSize:10,color:T.creamFaint}}>(coming soon)</span></span>
             <div style={{ display: "flex", gap: 6 }}>
               {["realtime", "daily", "weekly"].map(d => (
                 <div key={d} className={"digest-chip" + (digest === d ? " sel" : "")} onClick={() => setDigest(d)}>
@@ -371,7 +380,17 @@ export default function NotificationsScreen({ onNavigate }) {
 
           {loadingNotifs && <div className="th-loading"><div className="th-spinner" />Loading notifications...</div>}
           {!loadingNotifs && notifs.length === 0 && (
-            <div className="th-empty">No notifications yet.<br />Activity in your neighborhood will appear here.</div>
+            <div className="th-empty">
+              No notifications yet.<br />
+              <span style={{fontSize:12,color:T.creamFaint,display:"block",marginTop:4,marginBottom:16}}>
+                Post something, upvote a civic issue, or ask an expert question to start getting notified.
+              </span>
+              <button onClick={()=>onNavigate&&onNavigate("feed")}
+                style={{background:T.amberLo,border:`1px solid ${T.amberMid}`,borderRadius:8,padding:"8px 18px",
+                  fontSize:12,color:T.amberHi,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>
+                Go to feed →
+              </button>
+            </div>
           )}
           {!loadingNotifs && ["today", "yesterday", "earlier"].map(group => {
             const items = notifs.filter(n => getGroup(n.created_at) === group);
@@ -417,7 +436,7 @@ export default function NotificationsScreen({ onNavigate }) {
                     onClick={() => setActiveHood(activeHood === h.name ? null : h.name)}>
                     <div className="hood-tile-heat" style={{ background: h.heat }} />
                     <div className="hood-tile-name">{h.name}</div>
-                    <div className="hood-tile-issues">{h.issues} issues</div>
+                    <div className="hood-tile-issues">{h.issues > 0 ? h.issues + " issues" : "No issues"}</div>
                     <div className="hood-tile-bar">
                       <div className="hood-tile-fill" style={{ "--w": h.pct + "%", width: h.pct + "%", background: h.heat }} />
                     </div>
