@@ -56,7 +56,7 @@ function GatePage({ onUnlock }) {
   );
 }
 
-function Sidebar({ screen, navigate, userInit, neighborhood, onSignOut }) {
+function Sidebar({ screen, navigate, userInit, neighborhood, onSignOut, newPostBadge }) {
   const tabs = [
     { key:"feed",    label:"Feed",    sub:"Banter & posts",  color:"#D4922A" },
     { key:"civic",   label:"Civic",   sub:"Issues & votes",  color:"#378ADD" },
@@ -296,7 +296,7 @@ export default function Home() {
       `}</style>
       <div className="app-shell">
         <div className="app-sidebar">
-          <Sidebar screen={screen} navigate={navigate} userInit={userInit} neighborhood={neighborhood} onSignOut={handleSignOut}/>
+          <Sidebar screen={screen} navigate={navigate} userInit={userInit} neighborhood={neighborhood} onSignOut={handleSignOut} newPostBadge={newPostBadge}/>
         </div>
         <div className="app-content">
           {content}
