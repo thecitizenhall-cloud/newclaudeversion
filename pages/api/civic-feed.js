@@ -16,6 +16,23 @@ const JACKSON_LAT = 40.1;
 const JACKSON_LNG = -74.35;
 const JACKSON_ZOOM = 13; // SeeClickFix zoom level for city-sized area
 
+// Named export for direct use by civic-sync (avoids internal HTTP call)
+export async function getCivicItems({ lat = 40.1, lng = -74.35, city = "Jackson", state = "NJ" } = {}) {
+  const [scfResult, agendaResult, alertResult] = await Promise.allSettled([
+    fetchSeeClickFix(lat, lng),
+    fetchMeetingAgendas(city, state),
+    fetchWeatherAlerts(),
+  ]);
+  if (scfResult.status === "rejected")    console.error("SeeClickFix:", scfResult.reason?.message);
+  if (agendaResult.status === "rejected") console.error("Agendas:", agendaResult.reason?.message);
+  if (alertResult.status === "rejected")  console.error("Alerts:", alertResult.reason?.message);
+  return [
+    ...(scfResult.status  === "fulfilled" ? scfResult.value  : []),
+    ...(agendaResult.status === "fulfilled" ? agendaResult.value : []),
+    ...(alertResult.status === "fulfilled" ? alertResult.value  : []),
+  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
