@@ -476,7 +476,7 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
               {cityResults.length > 0 && (
                 <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:8, overflow:"hidden", marginBottom:6 }}>
                   {cityResults.map(city => (
-                    <div key={city.id} onClick={() => loadHoodsForCity(city)}
+                    <div key={city.id || city.nominatim_id} onClick={() => loadHoodsForCity(city)}
                       style={{ padding:"9px 14px", fontSize:13, color:T.cream, cursor:"pointer", borderBottom:`1px solid ${T.border}`, display:"flex", justifyContent:"space-between" }}
                       onMouseEnter={e => e.currentTarget.style.background = T.surfaceHi}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
