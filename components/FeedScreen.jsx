@@ -509,7 +509,7 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNew
 
     channelRef.current = supabase.channel("posts-rt")
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"posts" }, async (payload) => {
-        const { data } = await supabase.from("posts").select("*, profiles(display_name,neighborhood)").eq("id", payload.new.id).maybeSingle();
+        const { data } = await supabase.from("posts").select("*, profiles(display_name,neighborhood,is_bot)").eq("id", payload.new.id).maybeSingle();
         if (data) {
           // Only add to feed if it belongs to this user's neighborhood
           if (hoodIdRef.current && data.neighborhood_id && data.neighborhood_id !== hoodIdRef.current) return;
@@ -548,7 +548,7 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNew
     // Simplified — load all posts, no filter
     const { data, error } = await supabase
       .from("posts")
-      .select("*, profiles(display_name,neighborhood)")
+      .select("*, profiles(display_name,neighborhood,is_bot)")
       .order("created_at", { ascending:false })
       .limit(50);
 
