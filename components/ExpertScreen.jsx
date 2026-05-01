@@ -789,7 +789,7 @@ export default function ExpertScreen({ onNavigate }){
         </div>
 
         {/* Right: trust panel — hidden on mobile */}
-        <TrustPanel profile={profile} questions={questions}/>
+        <TrustPanel profile={profile} questions={questions} onNavigate={onNavigate}/>
 
       </div>
 
