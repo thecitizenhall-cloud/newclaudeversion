@@ -346,7 +346,7 @@ function QuestionCard({q, isExpert, currentUserId, onUpvote, onAnswer, isNew}){
         <button className={`q-btn${q.user_has_upvoted?" voted":""}`} onClick={()=>onUpvote(q)}>
           <UpIcon color={q.user_has_upvoted?T.amberHi:T.creamDim}/>{q.upvote_count||0}
         </button>
-        <button className="q-btn">Share</button>
+
         {isExpert&&!(q.expert_answers||[]).length&&!q.answering&&(
           <button className="q-btn answer-btn" onClick={()=>onAnswer(q.id,"open")}>Answer as expert →</button>
         )}
