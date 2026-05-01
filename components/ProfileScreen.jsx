@@ -164,6 +164,26 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
           display_name:    prof?.display_name || "",
           neighborhood_id: prof?.neighborhood_id || "",
         });
+
+        // Pre-populate city search from the saved neighborhood's city
+        if (prof?.neighborhood_id) {
+          const { data: hoodCity } = await supabase
+            .from("neighborhoods")
+            .select("id, name, city_id, cities(id, name, state, lat, lng)")
+            .eq("id", prof.neighborhood_id)
+            .maybeSingle();
+          if (hoodCity?.cities) {
+            setSelectedCity(hoodCity.cities);
+            setCitySearch(hoodCity.cities.name + ", " + hoodCity.cities.state);
+            // Load all neighborhoods for that city so the picker is populated
+            const { data: cityHoods } = await supabase
+              .from("neighborhoods")
+              .select("id, name")
+              .eq("city_id", hoodCity.cities.id)
+              .order("name");
+            if (cityHoods?.length) setNeighborhoods(cityHoods);
+          }
+        }
         setPostCount(posts || 0);
         setAnswerCount(answers || 0);
       } catch(e) {
@@ -218,7 +238,7 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
   async function loadHoodsForCity(city) {
     setSelectedCity(city);
     setCityResults([]);
-    setCitySearch(city.name);
+    setCitySearch(city.name + ", " + city.state);
     setForm(f => ({ ...f, neighborhood_id:"" })); // clear selection so user picks fresh
     // Try DB first
     const { data: linked } = await supabase
@@ -296,6 +316,8 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
     });
 
     setProfile(p => ({ ...p, display_name:form.display_name.trim(), neighborhood:hood?.name, neighborhood_id:form.neighborhood_id }));
+    // Keep city search populated after save — don't reset it
+    setCityResults([]);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -442,7 +464,8 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
 
             {/* Step 1 — City search */}
             <div style={{ marginBottom:8 }}>
-              <input className="profile-input" placeholder="Search your city…"
+              <input className="profile-input"
+                placeholder={selectedCity ? "Change city…" : "Search your city…"}
                 value={citySearch} onChange={e => searchCities(e.target.value)}
                 style={{ marginBottom:4 }}/>
               {cityResults.length > 0 && (
