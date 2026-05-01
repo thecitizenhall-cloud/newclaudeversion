@@ -304,9 +304,11 @@ function PostCard({ post, currentUserId, onVote, onEscalate, isNew }) {
   const [esc,      setEsc]      = useState(false);
   const [reported, setReported] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const a    = av(post.author_id);
-  const name = post.profiles?.display_name || "Resident";
-  const hood = post.profiles?.neighborhood  || "Townhall";
+  const a      = av(post.author_id);
+  const name   = post.profiles?.display_name || "Resident";
+  const hood   = post.profiles?.neighborhood  || "Townhall";
+  const isBot  = post.profiles?.is_bot || false;
+  const source = post.source_name || null;
 
   function handleEsc() {
     if (!window.confirm("Move this post to the civic tracker? This can't be undone.")) return;
@@ -332,15 +334,29 @@ function PostCard({ post, currentUserId, onVote, onEscalate, isNew }) {
       style={{ position:"relative" }}
       onMouseLeave={() => setShowMenu(false)}>
       <div className="th-post-meta">
-        <div className="th-post-avatar" style={{ background:a.bg, color:a.color }}>{initials(name)}</div>
+        {isBot ? (
+          <div style={{width:34,height:34,borderRadius:9,background:"#0D1E35",border:"1px solid #378ADD44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
+            🏛️
+          </div>
+        ) : (
+          <div className="th-post-avatar" style={{ background:a.bg, color:a.color }}>{initials(name)}</div>
+        )}
         <div>
-          <div className="th-post-author">{name}{post.author_id===currentUserId&&<span style={{fontSize:10,color:T.amberHi,marginLeft:6}}>you</span>}</div>
+          <div className="th-post-author" style={{display:"flex",alignItems:"center",gap:6}}>
+            {name}
+            {isBot && source && (
+              <span style={{fontSize:10,background:"#0D1E35",color:"#85B7EB",border:"1px solid #378ADD44",borderRadius:99,padding:"1px 7px",fontWeight:400}}>
+                {source}
+              </span>
+            )}
+            {!isBot && post.author_id===currentUserId && <span style={{fontSize:10,color:T.amberHi}}>you</span>}
+          </div>
           <div className="th-post-hood">{hood}</div>
         </div>
         <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6 }}>
           <div className="th-post-time">{timeAgo(post.created_at)}</div>
-          {/* Report button — only show on other people's posts */}
-          {post.author_id !== currentUserId && (
+          {/* Report button — only show on other people's real posts, not bot */}
+          {post.author_id !== currentUserId && !isBot && (
             <div style={{ position:"relative" }}>
               <button
                 onClick={() => setShowMenu(m => !m)}
@@ -380,6 +396,14 @@ function PostCard({ post, currentUserId, onVote, onEscalate, isNew }) {
         <button className={`th-action-btn${post.user_has_upvoted?" voted":""}`} onClick={()=>onVote(post)}>
           <UpIcon color={post.user_has_upvoted?T.amberHi:T.creamDim}/>{post.upvote_count||0}
         </button>
+        {post.source_url && (
+          <a href={post.source_url} target="_blank" rel="noopener noreferrer"
+            style={{display:"flex",alignItems:"center",gap:4,padding:"6px 10px",borderRadius:6,fontSize:12,color:T.blueHi,textDecoration:"none",transition:"all 0.15s"}}
+            onMouseEnter={e=>e.currentTarget.style.background=T.blueLo}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            View source ↗
+          </a>
+        )}
 
         {!post.escalated&&(post.tags||[]).some(t=>["issue","banter"].includes(t))&&(
           <button className="th-action-btn escalate-btn" onClick={handleEsc}><EscIcon color={T.blue}/> Escalate</button>
