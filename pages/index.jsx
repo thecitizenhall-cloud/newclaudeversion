@@ -165,8 +165,14 @@ export default function Home() {
     initApp();
 
     const { data:{ subscription } } = supabase.auth.onAuthStateChange(async(_e, session) => {
-      // Ignore token refresh events — fire constantly, should not re-route
+      // Only ignore token refresh — all other events (SIGNED_IN, SIGNED_OUT, etc.) need handling
       if (_e === "TOKEN_REFRESHED") return;
+      if (_e === "SIGNED_OUT" || !session) {
+        setUser(null);
+        setNeighborhood("My Neighborhood");
+        setScreen("onboarding");
+        return;
+      }
       if (session) {
         setUser(session.user);
         const { data:prof } = await supabase.from("profiles")
@@ -176,9 +182,6 @@ export default function Home() {
         setNeighborhood(prof?.neighborhood||"My Neighborhood");
         // Don't clobber screen if user is already navigating around the app
         setScreen(s => (s === "loading" || s === "onboarding") ? "feed" : s);
-      } else {
-        setUser(null);
-        setScreen("onboarding");
       }
     });
 
@@ -208,9 +211,10 @@ export default function Home() {
   function navigate(tab) { setScreen(tab); }
 
   async function handleSignOut() {
+    // Don't manually setScreen — onAuthStateChange(SIGNED_OUT) handles redirect
+    // Setting state here races with the auth listener and can cause flicker
+    setScreen("loading"); // immediate feedback while signOut completes
     await supabase.auth.signOut();
-    setUser(null);
-    setScreen("onboarding");
   }
 
   async function handleGateUnlock() {
