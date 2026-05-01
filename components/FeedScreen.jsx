@@ -308,7 +308,11 @@ function PostCard({ post, currentUserId, onVote, onEscalate, isNew }) {
   const name = post.profiles?.display_name || "Resident";
   const hood = post.profiles?.neighborhood  || "Townhall";
 
-  function handleEsc() { setEsc(true); setTimeout(() => onEscalate(post), 450); }
+  function handleEsc() {
+    if (!window.confirm("Move this post to the civic tracker? This can't be undone.")) return;
+    setEsc(true);
+    setTimeout(() => onEscalate(post), 450);
+  }
 
   async function handleReport(reason) {
     setShowMenu(false);
@@ -391,7 +395,7 @@ function IssueCard({ issue, onVote, isNew }) {
   return (
     <div className={`th-issue-card${isNew?" new-issue":""}`}>
       <div className="th-issue-top"><div className="th-issue-num">#{issue.issue_number||"?"}</div><div className="th-issue-title">{issue.title}</div></div>
-      <div className="th-issue-source">{issue.source_label||"Escalated from banter"}</div>
+      <div className="th-issue-source">{issue.source_label||"Escalated from banter"}{issue.created_at && <span style={{marginLeft:6,color:"#4A4640"}}>· {timeAgo(issue.created_at)}</span>}</div>
       <StatusPill status={issue.status||"open"}/>
       <div className="th-issue-bar-wrap">
         <div className="th-issue-bar-bg"><div className="th-issue-bar-fill" style={{"--w":`${issue.priority_pct||0}%`,width:`${issue.priority_pct||0}%`}}/></div>
@@ -410,14 +414,14 @@ function IssueCard({ issue, onVote, isNew }) {
 function IssuesPanel({ issues, onVote, newIssueIds }) {
   return (
     <>
-      {issues.length===0&&<div className="th-empty" style={{padding:"30px 0"}}>No issues yet.<br/>Escalate a post to start.</div>}
+      {issues.length===0&&<div className="th-empty" style={{padding:"30px 0"}}>No civic issues yet.<br/>Escalate a post from the feed to start.</div>}
       {issues.map(issue=><IssueCard key={issue.id} issue={issue} onVote={onVote} isNew={newIssueIds.includes(issue.id)}/>)}
     </>
   );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
-export default function FeedScreen({ onNavigate, initialCivicOpen = false }) {
+export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNewPost }) {
   useCSS("feedscreen-css", css);
   const [posts,        setPosts]        = useState([]);
   const [issues,       setIssues]       = useState([]);
@@ -430,6 +434,7 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false }) {
   const [newPostIds,   setNewPostIds]   = useState([]);
   const [newIssueIds,  setNewIssueIds]  = useState([]);
   const [currentUser,  setCurrentUser]  = useState(null);
+  const [tick,         setTick]         = useState(0); // forces timestamp re-render
   const [neighborhood,   setNeighborhood]   = useState("My Neighborhood");
   const [neighborhoodId,  setNeighborhoodId]  = useState(null);
   const [showIssues,   setShowIssues]   = useState(false); // mobile civic sheet
@@ -487,6 +492,10 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false }) {
           setPosts(prev => [data, ...prev]);
           setNewPostIds(ids => [...ids, data.id]);
           setTimeout(() => setNewPostIds(ids => ids.filter(i=>i!==data.id)), 1500);
+          // Signal parent that a new post arrived (used for sidebar badge)
+          // onNewPost is called to *clear* the badge when on feed — 
+          // parent sets badge on new post, clears on navigate to feed
+          // For now just keep the ref — badge is driven by index.jsx
         }
       })
       .on("postgres_changes", { event:"UPDATE", schema:"public", table:"posts" }, (payload) => {
@@ -501,10 +510,13 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false }) {
     window.addEventListener("offline", handleOffline);
     setIsOffline(!navigator.onLine);
 
+    const tickInterval = setInterval(() => setTick(t => t + 1), 60000);
+
     return () => {
       if (channelRef.current) channelRef.current.unsubscribe();
       window.removeEventListener("online",  handleOnline);
       window.removeEventListener("offline", handleOffline);
+      clearInterval(tickInterval);
     };
   }, []);
 
@@ -606,7 +618,7 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false }) {
     if (error) { showToast("Escalation failed"); return; }
     await supabase.from("posts").update({ escalated:true, escalated_issue_id:issue.id }).eq("id", post.id);
     const num = issues.length + 1;
-    const ni = {...issue, issue_number:num, user_has_voted:false};
+    const ni = {...issue, issue_number:num, user_has_voted:false, created_at:issue.created_at||new Date().toISOString()};
     setIssues(prev => [ni, ...prev]);
     setNewIssueIds(ids => [...ids, issue.id]);
     setTimeout(() => setNewIssueIds(ids => ids.filter(i=>i!==issue.id)), 2000);
@@ -648,9 +660,14 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false }) {
           <div className="th-compose">
             <textarea className="th-compose-input" rows={2}
               placeholder={`Share something with ${neighborhood}…`}
-              value={draft} onChange={e=>setDraft(e.target.value)}
+              value={draft} onChange={e=>setDraft(e.target.value.slice(0,2000))}
               onKeyDown={e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))handlePost();}}
             />
+            {draft.length > 1600 && (
+              <div style={{fontSize:11,textAlign:"right",color:draft.length>1900?T.red:draft.length>1800?T.amberHi:T.creamDim,marginTop:-6}}>
+                {draft.length} / 2000
+              </div>
+            )}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               {/* Tag chips only appear once user starts typing */}
               <div className="th-tag-row" style={{
@@ -691,7 +708,13 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false }) {
           {loading&&!loadError&&<div className="th-loading"><div className="th-spinner"/>Loading…</div>}
           {!loading&&!loadError&&filtered.length===0&&(
             <>
-              <div className="th-empty" style={{paddingBottom:8}}>No posts yet in {neighborhood}.<br/>Be the first to share something.</div>
+              <div className="th-empty" style={{paddingBottom:8}}>
+                {filter==="all" && <>{neighborhood} is quiet right now.<br/>Be the first to share something.</>}
+                {filter==="escalated" && <>No escalated posts yet.<br/>Escalate a post above to move it to the civic tracker.</>}
+                {filter==="banter" && <>No banter posts yet.<br/>Share something with your neighbors.</>}
+                {filter==="issue" && <>No issues posted yet.<br/>Tag a post as an issue to flag it for the community.</>}
+                {filter==="bulletin" && <>No bulletins yet.<br/>Post a bulletin to share an announcement.</>}
+              </div>
               {newsCards.length > 0 && (
                 <div style={{borderTop:`1px solid ${T.border}`}}>
                   <div style={{padding:"10px 16px 6px",fontSize:10,fontWeight:500,color:T.creamFaint,textTransform:"uppercase",letterSpacing:"0.08em"}}>Local news from your area</div>
