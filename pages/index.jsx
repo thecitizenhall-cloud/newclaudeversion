@@ -87,7 +87,12 @@ function Sidebar({ screen, navigate, userInit, neighborhood, onSignOut }) {
               background: active ? tab.color+"18" : "transparent",
             }}>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, fontWeight:500, color:active?tab.color:"#9A9188" }}>{tab.label}</div>
+                <div style={{ fontSize:13, fontWeight:500, color:active?tab.color:"#9A9188", display:"flex", alignItems:"center", gap:6 }}>
+                  {tab.label}
+                  {tab.key==="feed" && newPostBadge && !active && (
+                    <div style={{width:6,height:6,borderRadius:"50%",background:"#D4922A",flexShrink:0}}/>
+                  )}
+                </div>
                 <div style={{ fontSize:11, color:"#9A9188", marginTop:1, opacity:0.7 }}>{tab.sub}</div>
               </div>
               {active && <div style={{ width:3, height:18, borderRadius:99, background:tab.color, flexShrink:0 }}/>}
@@ -151,6 +156,7 @@ export default function Home() {
   const [neighborhood,   setNeighborhood]   = useState("My Neighborhood");
   const [authError,      setAuthError]      = useState(null);
   const [showWalkthrough,setShowWalkthrough]= useState(false);
+  const [newPostBadge,   setNewPostBadge]   = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -208,7 +214,10 @@ export default function Home() {
     }
   }
 
-  function navigate(tab) { setScreen(tab); }
+  function navigate(tab) {
+    if (tab === "feed" || tab === "civic") setNewPostBadge(false);
+    setScreen(tab);
+  }
 
   async function handleSignOut() {
     // Don't manually setScreen — onAuthStateChange(SIGNED_OUT) handles redirect
@@ -261,8 +270,8 @@ export default function Home() {
 
   const content = (
     <>
-      {screen==="feed"    && <FeedScreen          onNavigate={navigate}/>}
-      {screen==="civic"   && <FeedScreen          onNavigate={navigate} initialCivicOpen={true}/>}
+      {screen==="feed"    && <FeedScreen          onNavigate={navigate} onNewPost={()=>setNewPostBadge(false)}/>}
+      {screen==="civic"   && <FeedScreen          onNavigate={navigate} initialCivicOpen={true} onNewPost={()=>setNewPostBadge(false)}/>}
       {screen==="expert"  && <ExpertScreen        onNavigate={navigate}/>}
       {screen==="alerts"  && <NotificationsScreen onNavigate={navigate}/>}
       {screen==="profile" && <ProfileScreen       onNavigate={navigate} onSignOut={handleSignOut}/>}
@@ -280,8 +289,9 @@ export default function Home() {
         @media(max-width:767px) {
           .app-shell { grid-template-columns:1fr; }
           .app-sidebar { display:none; }
-          .app-content { height:calc(100vh - 60px); }
-          .app-bottom-tabs { display:flex; position:fixed; bottom:0; left:0; right:0; z-index:50; }
+          .app-content { height:calc(100vh - 60px - env(safe-area-inset-bottom)); }
+          .app-bottom-tabs { display:flex; position:fixed; bottom:0; left:0; right:0; z-index:50;
+            padding-bottom:env(safe-area-inset-bottom); background:#1A1916; }
         }
       `}</style>
       <div className="app-shell">
