@@ -376,7 +376,7 @@ function PostCard({ post, currentUserId, onVote, onEscalate, isNew }) {
         <button className={`th-action-btn${post.user_has_upvoted?" voted":""}`} onClick={()=>onVote(post)}>
           <UpIcon color={post.user_has_upvoted?T.amberHi:T.creamDim}/>{post.upvote_count||0}
         </button>
-        <button className="th-action-btn">Reply</button>
+
         {!post.escalated&&(post.tags||[]).some(t=>["issue","banter"].includes(t))&&(
           <button className="th-action-btn escalate-btn" onClick={handleEsc}><EscIcon color={T.blue}/> Escalate</button>
         )}
