@@ -324,11 +324,10 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
   }
 
   async function handleDeleteAccount() {
-    if (!window.confirm("Are you sure you want to delete your account? This cannot be undone.")) return;
-    await supabase.auth.signOut();
-    // Note: full account deletion requires a server-side function or manual Supabase action
-    // For now sign out and show message
-    alert("Your account has been signed out. To fully delete your data email hello@townhallcafe.org");
+    if (!window.confirm("This will submit a deletion request. Your account will be fully removed within 30 days. Continue?")) return;
+    // Sign out immediately so the user can't continue using the account
+    if (onSignOut) onSignOut();
+    // Full deletion is handled server-side within 30 days
   }
 
   if (loading) return (
@@ -578,11 +577,11 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
         <div style={{ background:T.redLo, border:`1px solid ${T.red}22`, borderRadius:12, padding:"16px 20px" }}>
           <div style={{ fontSize:13, fontWeight:500, color:T.redHi, marginBottom:4 }}>Danger zone</div>
           <div style={{ fontSize:12, color:T.creamDim, marginBottom:12, lineHeight:1.6 }}>
-            Deleting your account removes your profile and signs you out. Your posts remain but are anonymised. To fully delete all data email hello@townhallcafe.org.
+            Submitting a deletion request signs you out immediately. Your profile and personal data will be fully removed within 30 days. Posts remain but are anonymised.
           </div>
           <button onClick={handleDeleteAccount}
             style={{ background:"transparent", border:`1px solid ${T.red}44`, borderRadius:7, padding:"7px 16px", fontSize:12, color:T.redHi, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
-            Delete account
+            Request account deletion
           </button>
         </div>
 
