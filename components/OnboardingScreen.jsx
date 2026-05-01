@@ -228,12 +228,30 @@ function StepAccount({ onNext }) {
         )}
         <div className="th-field">
           <label className="th-label">Email</label>
-          <input className="th-input" type="email" placeholder="you@email.com" value={form.email} onChange={e=>f("email",e.target.value)}/>
+          <input className="th-input" type="email" placeholder="you@email.com" value={form.email}
+            onChange={e=>f("email",e.target.value)}
+            onBlur={e=>{ if(e.target.value && !e.target.value.includes("@")) setError("Please enter a valid email address."); else setError(""); }}/>
         </div>
         <div className="th-field">
           <label className="th-label">Password {mode==="signup" && <span style={{color:T.borderHi,fontWeight:300}}>— min 6 characters</span>}</label>
           <input className="th-input" type="password" placeholder="••••••••" value={form.password}
             onChange={e=>f("password",e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") handleSubmit(); }}/>
+          {mode==="signup" && form.password.length > 0 && (
+            <div style={{marginTop:6,display:"flex",alignItems:"center",gap:8}}>
+              {[
+                {min:0,  label:"Weak",   color:"#C0392B", bg:"#2A0E0A"},
+                {min:8,  label:"OK",     color:"#D4922A", bg:"#2A1E08"},
+                {min:12, label:"Strong", color:"#1D9E75", bg:"#0A2A1E"},
+              ].map((tier,i) => {
+                const strength = form.password.length < 6 ? 0 : form.password.length < 8 ? 1 : form.password.length < 12 ? 2 : 3;
+                const active = strength > i;
+                return <div key={i} style={{flex:1,height:3,borderRadius:99,background:active?tier.color:"#2C2A26",transition:"background 0.2s"}}/>;
+              })}
+              <span style={{fontSize:11,color:form.password.length<6?"#9A9188":form.password.length<8?"#C0392B":form.password.length<12?"#D4922A":"#1D9E75",whiteSpace:"nowrap"}}>
+                {form.password.length<6?"Too short":form.password.length<8?"Weak":form.password.length<12?"OK":"Strong"}
+              </span>
+            </div>
+          )}
         </div>
 
         {error && <div className="error-msg">{error}</div>}
@@ -282,7 +300,7 @@ function StepAccount({ onNext }) {
 }
 
 // ── Step 2: Neighborhood ──────────────────────────────────────────────────
-function StepNeighborhood({ onNext }) {
+function StepNeighborhood({ onNext, onBack }) {
   const [phase,        setPhase]        = useState("detecting");
   const [coords,       setCoords]       = useState(null);
   const [cities,       setCities]       = useState([]);
@@ -458,7 +476,7 @@ function StepNeighborhood({ onNext }) {
       .select("id,name,center_lat,center_lng").single();
     if (err) {
       if (err.code==="23505") {
-        const { data:ex } = await supabase.from("neighborhoods").select("id,name,center_lat,center_lng").eq("slug",slug).single();
+        const { data:ex } = await supabase.from("neighborhoods").select("id,name,center_lat,center_lng").eq("slug",slug).maybeSingle();
         if (ex) { setSelectedHood(ex); setHoods(prev=>prev.find(h=>h.id===ex.id)?prev:[ex,...prev]); setShowCreate(false); setNewHoodName(""); }
       } else { setError("Could not create neighborhood — "+err.message); }
     } else {
@@ -467,6 +485,13 @@ function StepNeighborhood({ onNext }) {
     setCreating(false);
   }
 
+  const [gpsTimeout, setGpsTimeout] = useState(false);
+  useEffect(() => {
+    if (phase !== "detecting") return;
+    const t = setTimeout(() => setGpsTimeout(true), 6000);
+    return () => clearTimeout(t);
+  }, [phase]);
+
   if (phase==="detecting") return (
     <>
       <div className="th-header">
@@ -474,15 +499,27 @@ function StepNeighborhood({ onNext }) {
         <div className="th-progress"><div className="th-progress-dot done"/><div className="th-progress-dot active"/><div className="th-progress-dot"/></div>
         <h1 className="th-step-title">Finding your <em>city</em></h1>
         <p className="th-step-sub">Allow location access to automatically detect your neighborhood.</p>
+        {onBack && <button onClick={onBack} style={{background:"transparent",border:"none",fontSize:12,color:"#9A9188",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",padding:0,marginTop:8}}>← Back</button>}
       </div>
       <div className="th-body">
         <div className="geo-map">
           <div className="geo-grid"/>
           <div className="geo-ring"/><div className="geo-ring"/><div className="geo-ring"/>
           <div className="geo-dot"/>
-          <div className="geo-label"><span style={{animation:"pulse 1s ease infinite",display:"inline-block"}}>Detecting location...</span></div>
+          <div className="geo-label">
+            <span style={{animation:"pulse 1s ease infinite",display:"inline-block"}}>
+              {gpsTimeout ? "Taking longer than expected…" : "Detecting location..."}
+            </span>
+          </div>
         </div>
-        <button className="th-btn th-btn-ghost" onClick={()=>setPhase("manual")}>Enter my city manually instead</button>
+        {gpsTimeout && (
+          <div style={{fontSize:12,color:"#9A9188",textAlign:"center",marginBottom:8,lineHeight:1.6}}>
+            Your browser may be blocking location access.
+          </div>
+        )}
+        <button className="th-btn th-btn-ghost" onClick={()=>setPhase("manual")}>
+          {gpsTimeout ? "Enter my city manually" : "Enter my city manually instead"}
+        </button>
       </div>
     </>
   );
@@ -494,6 +531,7 @@ function StepNeighborhood({ onNext }) {
         <div className="th-progress"><div className="th-progress-dot done"/><div className="th-progress-dot active"/><div className="th-progress-dot"/></div>
         <h1 className="th-step-title">Find your <em>city</em></h1>
         <p className="th-step-sub">Search for your city across all 50 states.</p>
+        {onBack && <button onClick={onBack} style={{background:"transparent",border:"none",fontSize:12,color:"#9A9188",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",padding:0,marginTop:8}}>← Back</button>}
       </div>
       <div className="th-body">
         <input className="th-input" placeholder="Search city name..." value={citySearch}
@@ -535,6 +573,7 @@ function StepNeighborhood({ onNext }) {
       </div>
       <div className="th-body">
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+          {onBack && <button onClick={onBack} style={{background:"transparent",border:"none",fontSize:12,color:"#9A9188",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",padding:0,flexShrink:0}}>←</button>}
           <div style={{padding:"4px 12px",background:T.amberLo,border:`1px solid ${T.amberMid}`,borderRadius:99,fontSize:12,color:T.amberHi}}>
             {selectedCity?.name}, {selectedCity?.state}
           </div>
@@ -601,7 +640,7 @@ function StepNeighborhood({ onNext }) {
 }
 
 // ── Step 3: ZK Proof ──────────────────────────────────────────────────────
-function StepZK({ hood, onNext }) {
+function StepZK({ hood, onNext, onBack }) {
   const [phase,     setPhase]     = useState("intro");
   const [hash,      setHash]      = useState("");
   const [proofHash, setProofHash] = useState("");
@@ -620,6 +659,7 @@ function StepZK({ hood, onNext }) {
         <div className="th-progress"><div className="th-progress-dot done"/><div className="th-progress-dot done"/><div className="th-progress-dot active"/></div>
         <h1 className="th-step-title"><em>Prove</em> your residency</h1>
         <p className="th-step-sub">We generate a cryptographic proof that you are a {hood.name} resident without ever seeing your address.</p>
+        {onBack && phase==="intro" && <button onClick={onBack} style={{background:"transparent",border:"none",fontSize:12,color:"#9A9188",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",padding:0,marginTop:8}}>← Back</button>}
       </div>
       <div className="th-body">
         <div className="privacy-chips">
@@ -641,7 +681,16 @@ function StepZK({ hood, onNext }) {
             <div className={`zk-hash${hash?" visible":""}`}>{hash||"—"}</div>
             {proofHash && (<><div className="zk-proof-label" style={{marginTop:10}}>Residency proof</div><div className={`zk-hash${proofHash?" visible":""}`}>{proofHash}</div></>)}
             {phase==="generating"&&!proofHash&&<div className="zk-spinner-row"><div className="th-spinner"/>Generating proof...</div>}
-            {phase==="done"&&<div style={{marginTop:12,display:"flex",alignItems:"center",gap:8,fontSize:13,color:T.greenHi}}><CheckIcon color={T.greenHi} size={14}/>{hood.name} resident confirmed</div>}
+            {phase==="done"&&(
+              <div style={{marginTop:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:T.greenHi,marginBottom:6}}>
+                  <CheckIcon color={T.greenHi} size={14}/>{hood.name} resident confirmed
+                </div>
+                <div style={{fontSize:12,color:"#9A9188",lineHeight:1.6,background:"#0A2A1E",border:"1px solid #1B4A35",borderRadius:8,padding:"10px 12px"}}>
+                  Your address was never sent to our servers — only a cryptographic proof that you live in {hood.name}.
+                </div>
+              </div>
+            )}
           </div>
         </div>
         {phase==="intro"      && <button className="th-btn th-btn-primary" onClick={startGeneration}>Generate my residency proof</button>}
@@ -711,7 +760,7 @@ function StepWelcome({ user, hood, onComplete }) {
           ))}
         </div>
         <button className="th-btn th-btn-primary" onClick={handleEnter} disabled={saving}>
-          {saving ? "Setting up..." : "Open Townhall"}
+          {saving ? "Setting up…" : "Open Townhall →"}
         </button>
       </div>
     </>
@@ -729,8 +778,8 @@ export default function OnboardingScreen({ onComplete }) {
       <style>{css}</style>
       <div className="th-card" key={step}>
         {step===1 && <StepAccount onNext={data=>{ setUser(data); setStep(2); }}/>}
-        {step===2 && <StepNeighborhood onNext={data=>{ setHood(data.hood); setStep(3); }}/>}
-        {step===3 && <StepZK hood={hood} onNext={()=>setStep(4)}/>}
+        {step===2 && <StepNeighborhood onNext={data=>{ setHood(data.hood); setStep(3); }} onBack={()=>setStep(1)}/>}
+        {step===3 && <StepZK hood={hood} onNext={()=>setStep(4)} onBack={()=>setStep(2)}/>}
         {step===4 && <StepWelcome user={user} hood={hood} onComplete={onComplete}/>}
       </div>
     </>
