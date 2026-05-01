@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
 const T = {
@@ -35,13 +35,19 @@ function ScoreRing({ score }) {
   const circ = 2 * Math.PI * r;
   const dash = pct * circ;
   const tier = currentTier(score);
+  // Only animate on first mount — not on every tab switch
+  const mounted = React.useRef(false);
+  const [animate, setAnimate] = React.useState(false);
+  React.useEffect(() => {
+    if (!mounted.current) { mounted.current = true; setTimeout(()=>setAnimate(true), 50); }
+  }, []);
   return (
     <div style={{ position:"relative", width:110, height:110 }}>
       <svg width="110" height="110" viewBox="0 0 110 110" style={{ transform:"rotate(-90deg)" }}>
         <circle cx={cx} cy={cy} r={r} fill="none" stroke={T.border} strokeWidth="6"/>
         <circle cx={cx} cy={cy} r={r} fill="none" stroke={tier.dot} strokeWidth="6"
-          strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round"
-          style={{ transition:"stroke-dasharray 0.6s ease" }}/>
+          strokeDasharray={animate ? `${dash} ${circ - dash}` : `0 ${circ}`} strokeLinecap="round"
+          style={{ transition: animate ? "stroke-dasharray 0.6s ease" : "none" }}/>
       </svg>
       <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
         <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:26, color:tier.dot, lineHeight:1 }}>{score}</div>
@@ -547,7 +553,11 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
                 <div style={{ fontSize:13, color:T.cream }}>Email address</div>
                 <div style={{ fontSize:12, color:T.creamDim, marginTop:2 }}>{profile?.email}</div>
               </div>
-              <span style={{ fontSize:11, color:T.creamFaint }}>Cannot be changed</span>
+              <a href="mailto:hello@townhallcafe.org?subject=Email change request"
+                style={{fontSize:11,color:T.creamDim,textDecoration:"none",
+                  background:T.surface,border:`1px solid ${T.border}`,borderRadius:7,padding:"3px 10px"}}>
+                Contact us to change
+              </a>
             </div>
 
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", background:T.bg, border:`1px solid ${T.border}`, borderRadius:8 }}>
@@ -558,6 +568,19 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
               <a href="/reset-password" style={{ fontSize:12, color:T.amberHi, textDecoration:"none", background:T.amberLo, border:`1px solid ${T.amberMid}`, borderRadius:7, padding:"5px 12px" }}>
                 Reset →
               </a>
+            </div>
+
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", background:T.bg, border:`1px solid ${T.border}`, borderRadius:8 }}>
+              <div>
+                <div style={{ fontSize:13, color:T.cream }}>App tour</div>
+                <div style={{ fontSize:12, color:T.creamDim, marginTop:2 }}>Retake the walkthrough</div>
+              </div>
+              <button onClick={() => {
+                try { localStorage.removeItem("th_walkthrough_done"); } catch(e) {}
+                window.location.reload();
+              }} style={{ fontSize:12, color:T.creamDim, background:"transparent", border:`1px solid ${T.border}`, borderRadius:7, padding:"5px 12px", cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
+                Retake tour
+              </button>
             </div>
 
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", background:T.bg, border:`1px solid ${T.border}`, borderRadius:8 }}>
