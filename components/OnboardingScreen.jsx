@@ -99,10 +99,7 @@ const css = `
   .next-step-num { width:22px; height:22px; border-radius:50%; background:${T.amberLo}; border:1px solid ${T.amber}; font-size:11px; color:${T.amberHi}; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:500; }
 `;
 
-function fakeHash() {
-  const hex = "0123456789abcdef";
-  return Array.from({ length:64 }, () => hex[Math.floor(Math.random()*16)]).join("");
-}
+// fakeHash removed — real ZK proofs used
 
 function LogoMark() {
   return (
@@ -611,7 +608,7 @@ function StepNeighborhood({ onNext, onBack }) {
         {error && <div style={{fontSize:12,color:"#E57373",marginBottom:10}}>{error}</div>}
 
         <button className="th-btn th-btn-primary" disabled={!selectedHood||loading}
-          onClick={()=>{ if(!selectedHood?.id){setError("Please select or create a neighborhood.");return;} onNext({ hood:{id:selectedHood.id,name:selectedHood.name} }); }}>
+          onClick={()=>{ if(!selectedHood?.id){setError("Please select or create a neighborhood.");return;} onNext({ hood:{id:selectedHood.id,name:selectedHood.name}, coords }); }}>
           Continue
         </button>
 
@@ -640,16 +637,93 @@ function StepNeighborhood({ onNext, onBack }) {
 }
 
 // ── Step 3: ZK Proof ──────────────────────────────────────────────────────
-function StepZK({ hood, onNext, onBack }) {
-  const [phase,     setPhase]     = useState("intro");
-  const [hash,      setHash]      = useState("");
-  const [proofHash, setProofHash] = useState("");
+// Real Groth16 proof generation using snarkjs + our compiled circuit.
+// Coordinates stay on device — only the commitment hash is sent to the server.
+function StepZK({ hood, coords, onNext, onBack }) {
+  const [phase,          setPhase]         = useState("intro");
+  const [commitHash,     setCommitHash]    = useState("");
+  const [proofHash,      setProofHash]     = useState("");
+  const [progressMsg,    setProgressMsg]   = useState("");
+  const [error,          setError]         = useState("");
 
-  function startGeneration() {
+  async function startGeneration() {
     setPhase("generating");
-    setTimeout(()=>setHash(fakeHash()), 600);
-    setTimeout(()=>setProofHash(fakeHash()), 1400);
-    setTimeout(()=>setPhase("done"), 2200);
+    setError("");
+
+    try {
+      // ── Step 1: Load snarkjs from CDN ────────────────────────────────────
+      setProgressMsg("Loading proof engine…");
+      await loadSnarkjs();
+
+      // ── Step 2: Fetch neighborhood polygon ───────────────────────────────
+      setProgressMsg("Loading neighborhood boundary…");
+      const polyRes = await fetch(`/api/zk-neighborhood?id=${hood.id}`);
+      if (!polyRes.ok) throw new Error("Could not load neighborhood boundary");
+      const polyData = await polyRes.json();
+      const { vertices } = polyData;
+
+      // ── Step 3: Prepare circuit inputs ───────────────────────────────────
+      setProgressMsg("Preparing circuit inputs…");
+      const SCALE = 1_000_000;
+      const latScaled = Math.round((coords?.lat ?? hood.centerLat ?? 40.103) * SCALE);
+      const lngScaled = Math.round((coords?.lng ?? hood.centerLng ?? -74.349) * SCALE);
+
+      // Random 128-bit nonce — never leaves this function
+      const nonceBytes = new Uint8Array(16);
+      crypto.getRandomValues(nonceBytes);
+      const nonce = BigInt("0x" + Array.from(nonceBytes).map(b => b.toString(16).padStart(2,"0")).join("")).toString();
+
+      const input = {
+        lat:      latScaled,
+        lng:      lngScaled,
+        nonce,
+        poly_lat: vertices.map(v => Math.round(v.lat * SCALE)),
+        poly_lng: vertices.map(v => Math.round(v.lng * SCALE)),
+      };
+
+      // ── Step 4: Generate Groth16 proof ───────────────────────────────────
+      setProgressMsg("Generating cryptographic proof… (this takes a few seconds)");
+      const { proof, publicSignals } = await window.snarkjs.groth16.fullProve(
+        input,
+        "/zk/residency.wasm",
+        "/zk/residency.zkey"
+      );
+
+      const commitmentHash = publicSignals[0];
+      const boundaryHash   = publicSignals[1];
+
+      setCommitHash(commitmentHash.slice(0, 32) + "…");
+
+      // ── Step 5: Send proof to edge function for verification ─────────────
+      setProgressMsg("Verifying proof on server…");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not signed in");
+
+      const verifyRes = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/zk-verify`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":  "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ proof, publicSignals, neighborhoodId: hood.id }),
+        }
+      );
+
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok || !verifyData.success) {
+        throw new Error(verifyData.error || "Proof verification failed");
+      }
+
+      setProofHash(verifyData.commitmentHash?.slice(0, 32) + "…");
+      setProgressMsg("");
+      setPhase("done");
+
+    } catch (err) {
+      setError(err.message || "Proof generation failed. Please try again.");
+      setPhase("error");
+    }
   }
 
   return (
@@ -668,7 +742,7 @@ function StepZK({ hood, onNext, onBack }) {
           ))}
         </div>
         <div className="zk-chamber">
-          {phase!=="intro" && <div className="zk-scanline"/>}
+          {phase==="generating" && <div className="zk-scanline"/>}
           <div className="zk-title">Zero-knowledge proof chamber</div>
           <div className="zk-rows">
             <div className="zk-row"><div className="zk-row-icon no">X</div><span className="zk-row-text"><strong>Not stored:</strong> your GPS coordinates</span></div>
@@ -678,27 +752,63 @@ function StepZK({ hood, onNext, onBack }) {
           </div>
           <div className="zk-proof-area">
             <div className="zk-proof-label">Commitment hash</div>
-            <div className={`zk-hash${hash?" visible":""}`}>{hash||"—"}</div>
-            {proofHash && (<><div className="zk-proof-label" style={{marginTop:10}}>Residency proof</div><div className={`zk-hash${proofHash?" visible":""}`}>{proofHash}</div></>)}
-            {phase==="generating"&&!proofHash&&<div className="zk-spinner-row"><div className="th-spinner"/>Generating proof...</div>}
-            {phase==="done"&&(
+            <div className={`zk-hash${commitHash?" visible":""}`}>{commitHash||"—"}</div>
+            {proofHash && (
+              <>
+                <div className="zk-proof-label" style={{marginTop:10}}>Verified proof</div>
+                <div className={`zk-hash${proofHash?" visible":""}`}>{proofHash}</div>
+              </>
+            )}
+            {phase==="generating" && (
+              <div className="zk-spinner-row">
+                <div className="th-spinner"/>
+                {progressMsg || "Generating proof…"}
+              </div>
+            )}
+            {phase==="done" && (
               <div style={{marginTop:12}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:T.greenHi,marginBottom:6}}>
                   <CheckIcon color={T.greenHi} size={14}/>{hood.name} resident confirmed
                 </div>
                 <div style={{fontSize:12,color:"#9A9188",lineHeight:1.6,background:"#0A2A1E",border:"1px solid #1B4A35",borderRadius:8,padding:"10px 12px"}}>
-                  Your address was never sent to our servers — only a cryptographic proof that you live in {hood.name}.
+                  Your address was never sent to our servers — only a Groth16 zero-knowledge proof that you live in {hood.name}.
                 </div>
+              </div>
+            )}
+            {phase==="error" && (
+              <div style={{marginTop:12,background:T.redLo,border:`1px solid ${T.red}44`,borderRadius:8,padding:"10px 12px",fontSize:12,color:T.redHi}}>
+                {error}
+                <button onClick={()=>{setPhase("intro");setError("");setCommitHash("");}}
+                  style={{display:"block",marginTop:8,background:"transparent",border:`1px solid ${T.red}44`,borderRadius:6,padding:"4px 12px",fontSize:11,color:T.redHi,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>
+                  Try again
+                </button>
               </div>
             )}
           </div>
         </div>
-        {phase==="intro"      && <button className="th-btn th-btn-primary" onClick={startGeneration}>Generate my residency proof</button>}
-        {phase==="generating" && <button className="th-btn th-btn-primary" disabled>Generating...</button>}
-        {phase==="done"       && <button className="th-btn th-btn-primary" onClick={onNext}>Enter Townhall</button>}
+        {(phase==="intro" || phase==="error") && (
+          <button className="th-btn th-btn-primary" onClick={startGeneration} style={{opacity:phase==="error"?0.8:1}}>
+            {phase==="error" ? "Retry proof generation" : "Generate my residency proof"}
+          </button>
+        )}
+        {phase==="generating" && <button className="th-btn th-btn-primary" disabled>Generating…</button>}
+        {phase==="done"       && <button className="th-btn th-btn-primary" onClick={onNext}>Enter Townhall →</button>}
       </div>
     </>
   );
+}
+
+// ── snarkjs loader (CDN, cached) ───────────────────────────────────────────
+let _snarkjsLoaded = false;
+function loadSnarkjs() {
+  if (_snarkjsLoaded || window.snarkjs) { _snarkjsLoaded = true; return Promise.resolve(); }
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/snarkjs@0.7.4/build/snarkjs.min.js";
+    s.onload  = () => { _snarkjsLoaded = true; resolve(); };
+    s.onerror = () => reject(new Error("Failed to load snarkjs — check your internet connection"));
+    document.head.appendChild(s);
+  });
 }
 
 // ── Step 4: Welcome ───────────────────────────────────────────────────────
@@ -769,17 +879,18 @@ function StepWelcome({ user, hood, onComplete }) {
 
 // ── Shell ──────────────────────────────────────────────────────────────────
 export default function OnboardingScreen({ onComplete }) {
-  const [step, setStep] = useState(1);
-  const [user, setUser] = useState(null);
-  const [hood, setHood] = useState(null);
+  const [step,   setStep]   = useState(1);
+  const [user,   setUser]   = useState(null);
+  const [hood,   setHood]   = useState(null);
+  const [coords, setCoords] = useState(null); // GPS coords from StepNeighborhood
 
   return (
     <>
       <style>{css}</style>
       <div className="th-card" key={step}>
         {step===1 && <StepAccount onNext={data=>{ setUser(data); setStep(2); }}/>}
-        {step===2 && <StepNeighborhood onNext={data=>{ setHood(data.hood); setStep(3); }} onBack={()=>setStep(1)}/>}
-        {step===3 && <StepZK hood={hood} onNext={()=>setStep(4)} onBack={()=>setStep(2)}/>}
+        {step===2 && <StepNeighborhood onNext={data=>{ setHood(data.hood); setCoords(data.coords || null); setStep(3); }} onBack={()=>setStep(1)}/>}
+        {step===3 && <StepZK hood={hood} coords={coords} onNext={()=>setStep(4)} onBack={()=>setStep(2)}/>}
         {step===4 && <StepWelcome user={user} hood={hood} onComplete={onComplete}/>}
       </div>
     </>
