@@ -181,11 +181,16 @@ export default function Home() {
       }
       if (session) {
         setUser(session.user);
-        const { data:prof } = await supabase.from("profiles")
+        const { data:prof, error:profErr } = await supabase.from("profiles")
           .select("neighborhood_id,neighborhood,onboarded").eq("id",session.user.id).maybeSingle();
-        // Only route to onboarding if genuinely not set up (not a race condition)
+        if (profErr) {
+          // Profile fetch failed — don't loop back to onboarding, just go to feed
+          setScreen(s => s === "loading" ? "feed" : s);
+          return;
+        }
+        // Only route to onboarding if genuinely not set up
         if (!prof?.neighborhood_id && !prof?.onboarded) { setScreen("onboarding"); return; }
-        setNeighborhood(prof?.neighborhood||"My Neighborhood");
+        setNeighborhood(prof?.neighborhood || "My Neighborhood");
         // Don't clobber screen if user is already navigating around the app
         setScreen(s => (s === "loading" || s === "onboarding") ? "feed" : s);
       }
@@ -195,22 +200,38 @@ export default function Home() {
   }, []);
 
   async function initApp() {
-    const { data:{ session }, error } = await supabase.auth.getSession();
-    if (error) { setAuthError(error.message); setScreen("error"); return; }
-    if (session) {
-      setUser(session.user);
-      const { data:prof } = await supabase.from("profiles")
-        .select("neighborhood_id,neighborhood").eq("id",session.user.id).maybeSingle();
-      if (!prof?.neighborhood_id) { setScreen("onboarding"); return; }
-      setNeighborhood(prof.neighborhood||"My Neighborhood");
-      setScreen("feed");
-      try {
-        if (!localStorage.getItem("th_walkthrough_done")) {
-          setTimeout(()=>setShowWalkthrough(true), 800);
+    // Safety net: if something hangs, don't leave user on spinner forever
+    const timeout = setTimeout(() => {
+      setScreen(s => s === "loading" ? "onboarding" : s);
+    }, 8000);
+
+    try {
+      const { data:{ session }, error } = await supabase.auth.getSession();
+      if (error) { setAuthError(error.message); setScreen("error"); return; }
+      if (session) {
+        setUser(session.user);
+        const { data:prof, error:profErr } = await supabase.from("profiles")
+          .select("neighborhood_id,neighborhood,onboarded").eq("id",session.user.id).maybeSingle();
+        // If profile fetch errored (network blip, RLS), go to feed rather than
+        // routing existing users back through onboarding on every bad network day
+        if (profErr) {
+          console.warn("Profile fetch error:", profErr.message);
+          setScreen("feed");
+          return;
         }
-      } catch(e) {}
-    } else {
-      setScreen("onboarding");
+        if (!prof?.neighborhood_id && !prof?.onboarded) { setScreen("onboarding"); return; }
+        setNeighborhood(prof?.neighborhood || "My Neighborhood");
+        setScreen("feed");
+        try {
+          if (!localStorage.getItem("th_walkthrough_done")) {
+            setTimeout(() => setShowWalkthrough(true), 800);
+          }
+        } catch(e) {}
+      } else {
+        setScreen("onboarding");
+      }
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -308,4 +329,3 @@ export default function Home() {
     </>
   );
 }
-
