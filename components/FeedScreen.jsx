@@ -79,12 +79,12 @@ const css = `
     height: 100%;
   }
 
-  .th-feed-header { padding:14px 16px 12px; border-bottom:1px solid ${T.border}; position:sticky; top:0; background:${T.bg}; z-index:10; display:flex; align-items:center; gap:10px; }
+  .th-feed-header { padding:14px 16px 12px; border-bottom:1px solid ${T.border}; position:sticky; top:0; background:${T.bg}; z-index:10; display:flex; align-items:center; gap:10px; height:57px; box-sizing:border-box; }
   .th-app-desktop .th-feed-header { padding:16px 20px 12px; }
   .th-feed-title { font-family:'DM Serif Display',serif; font-size:18px;color:${T.cream}; }
   .th-feed-title em { font-style:italic; color:${T.amberHi}; }
 
-  .th-filter-row { display:flex;gap:6px;padding:10px 16px; border-bottom:1px solid ${T.border}; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .th-filter-row { display:flex;gap:6px;padding:10px 16px; border-bottom:1px solid ${T.border}; overflow-x:auto; -webkit-overflow-scrolling:touch; position:sticky; top:57px; background:${T.bg}; z-index:9; }
   .th-app-desktop .th-filter-row { padding:10px 20px; }
   .th-filter-row::-webkit-scrollbar { display:none; }
   .th-filter-pill { display:flex;align-items:center;gap:5px; padding:5px 12px;border-radius:99px; border:1px solid ${T.border}; font-size:12px;color:${T.creamDim}; cursor:pointer;white-space:nowrap; transition:all 0.15s;flex-shrink:0; }
