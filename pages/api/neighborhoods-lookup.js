@@ -1,11 +1,34 @@
 // pages/api/neighborhoods-lookup.js
 //
-// Finds neighborhoods within a given city.
-// Layer 1: Overpass API (OpenStreetMap)
-// Layer 2: Hardcoded list for major US cities
-// Layer 3: Nominatim fallback via city-search proxy
+// Finds neighborhoods within a given city, including real polygon boundaries.
+//
+// Layer 1: Overpass API (OpenStreetMap) — fetches ways/relations with full geometry
+//          so we get actual polygon boundaries, not just centroids.
+//          These are stored in neighborhoods.boundary (PostGIS geography column)
+//          enabling real ZK proof generation.
+//
+// Layer 2: Hardcoded name list for major US cities (no polygon geometry available)
+//          Falls back to bounding-box approximation in zk-neighborhood.js
+//
+// Layer 3: Nominatim fallback — centroids only, same fallback for ZK
 //
 // GET /api/neighborhoods-lookup?city=Chicago&state=IL&lat=41.8781&lng=-87.6298
+//
+// Returns:
+// {
+//   neighborhoods: [
+//     {
+//       name: "Lincoln Park",
+//       lat: 41.921,          // centroid lat
+//       lng: -87.634,         // centroid lng
+//       polygon: [            // OSM polygon vertices — null if unavailable
+//         { lat: 41.930, lng: -87.650 },
+//         ...
+//       ]
+//     }
+//   ],
+//   source: "overpass" | "fallback" | "nominatim" | "empty"
+// }
 
 const CITY_NEIGHBORHOODS = {
   "New York City": ["Astoria","Battery Park","Bedford-Stuyvesant","Bensonhurst","Bronx Park","Brooklyn Heights","Bushwick","Carroll Gardens","Chelsea","Chinatown","Clinton Hill","Cobble Hill","Crown Heights","East Harlem","East Village","Financial District","Flatbush","Flushing","Forest Hills","Fort Greene","Greenpoint","Greenwich Village","Harlem","Hell's Kitchen","Jackson Heights","Jamaica","Kensington","Long Island City","Lower East Side","Midtown","Murray Hill","NoHo","Nolita","Park Slope","Prospect Heights","Queens Village","Red Hook","Ridgewood","SoHo","Sunnyside","Sunset Park","Tribeca","Upper East Side","Upper West Side","Washington Heights","Williamsburg","Woodside"],
@@ -41,39 +64,77 @@ export default async function handler(req, res) {
   const latitude  = parseFloat(lat);
   const longitude = parseFloat(lng);
 
-  // ── Layer 1: Overpass API ─────────────────────────────────────────────
+  // ── Layer 1: Overpass API with full polygon geometry ──────────────────────
+  // Query ways and relations (which carry polygon geometry), not just nodes.
+  // out geom; returns all node coordinates inline — no second request needed.
   try {
     const query = `
-      [out:json][timeout:20];
+      [out:json][timeout:25];
       (
-        node["place"="neighbourhood"](around:25000,${latitude},${longitude});
-        node["place"="suburb"](around:25000,${latitude},${longitude});
-        node["place"="quarter"](around:25000,${latitude},${longitude});
-        node["place"="district"](around:25000,${latitude},${longitude});
+        way["place"~"neighbourhood|suburb|quarter|district"](around:25000,${latitude},${longitude});
+        relation["place"~"neighbourhood|suburb|quarter|district"](around:25000,${latitude},${longitude});
+        node["place"~"neighbourhood|suburb|quarter|district"](around:25000,${latitude},${longitude});
       );
-      out body;
+      out geom;
     `;
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
     const response = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
+      method:  "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "data=" + encodeURIComponent(query),
-      signal: controller.signal,
+      body:    "data=" + encodeURIComponent(query),
+      signal:  controller.signal,
     });
     clearTimeout(timeout);
 
     if (response.ok) {
       const data = await response.json();
       const seen = new Set();
-      const neighborhoods = (data.elements || [])
-        .filter(el => el.tags?.name && el.lat && el.lon)
-        .map(el => ({ name: el.tags.name, lat: el.lat, lng: el.lon }))
-        .filter(n => { if (seen.has(n.name)) return false; seen.add(n.name); return true; })
-        .sort((a, b) => a.name.localeCompare(b.name));
+      const neighborhoods = [];
+
+      for (const el of data.elements || []) {
+        const name = el.tags?.name;
+        if (!name || seen.has(name)) continue;
+        seen.add(name);
+
+        let polygon = null;
+        let centerLat, centerLng;
+
+        if (el.type === "way" && el.geometry?.length >= 3) {
+          // Way: geometry is [{lat, lon}...] forming the boundary ring
+          const coords = el.geometry.map(n => ({ lat: n.lat, lng: n.lon }));
+          polygon   = simplifyPolygon(coords, 8);
+          centerLat = coords.reduce((s, c) => s + c.lat, 0) / coords.length;
+          centerLng = coords.reduce((s, c) => s + c.lng, 0) / coords.length;
+
+        } else if (el.type === "relation" && el.members) {
+          // Relation: find the outer ring member
+          const outer = el.members.find(m => m.role === "outer" && m.geometry?.length >= 3);
+          if (outer) {
+            const coords = outer.geometry.map(n => ({ lat: n.lat, lng: n.lon }));
+            polygon   = simplifyPolygon(coords, 8);
+            centerLat = coords.reduce((s, c) => s + c.lat, 0) / coords.length;
+            centerLng = coords.reduce((s, c) => s + c.lng, 0) / coords.length;
+          } else {
+            centerLat = el.center?.lat ?? latitude;
+            centerLng = el.center?.lon ?? longitude;
+          }
+
+        } else if (el.type === "node") {
+          // Node: point only — no polygon geometry available
+          centerLat = el.lat;
+          centerLng = el.lon;
+        }
+
+        if (!centerLat || !centerLng) continue;
+
+        neighborhoods.push({ name, lat: centerLat, lng: centerLng, polygon });
+      }
 
       if (neighborhoods.length > 0) {
-        res.setHeader("Cache-Control", "public, max-age=86400"); // Cache 24h
+        neighborhoods.sort((a, b) => a.name.localeCompare(b.name));
+        res.setHeader("Cache-Control", "public, max-age=86400");
         return res.status(200).json({ neighborhoods, source: "overpass" });
       }
     }
@@ -81,7 +142,7 @@ export default async function handler(req, res) {
     console.log("Overpass failed:", err.message);
   }
 
-  // ── Layer 2: Hardcoded fallback ───────────────────────────────────────
+  // ── Layer 2: Hardcoded name list (no polygon geometry) ────────────────────
   const cityKey = Object.keys(CITY_NEIGHBORHOODS).find(k =>
     k.toLowerCase() === city.toLowerCase() ||
     city.toLowerCase().includes(k.toLowerCase()) ||
@@ -89,21 +150,22 @@ export default async function handler(req, res) {
   );
 
   if (cityKey) {
-    // Use real coordinates spread around city center — not random
-    const neighborhoods = CITY_NEIGHBORHOODS[cityKey].map((name, i) => {
-      const angle = (i / CITY_NEIGHBORHOODS[cityKey].length) * 2 * Math.PI;
+    const names = CITY_NEIGHBORHOODS[cityKey];
+    const neighborhoods = names.map((name, i) => {
+      const angle  = (i / names.length) * 2 * Math.PI;
       const radius = 0.02 + (i % 3) * 0.01;
       return {
         name,
-        lat: latitude + Math.sin(angle) * radius,
-        lng: longitude + Math.cos(angle) * radius,
+        lat:     latitude  + Math.sin(angle) * radius,
+        lng:     longitude + Math.cos(angle) * radius,
+        polygon: null,
       };
     });
     res.setHeader("Cache-Control", "public, max-age=86400");
     return res.status(200).json({ neighborhoods, source: "fallback" });
   }
 
-  // ── Layer 3: Nominatim via internal proxy ─────────────────────────────
+  // ── Layer 3: Nominatim centroids only ────────────────────────────────────
   try {
     const baseUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
@@ -115,14 +177,14 @@ export default async function handler(req, res) {
     );
     const nomData = await nomRes.json();
     const results = nomData.results || [];
-
     const seen = new Set();
     const neighborhoods = results
       .filter(r => ["suburb","neighbourhood","quarter","village","hamlet"].includes(r.type))
       .map(r => ({
-        name: r.address?.suburb || r.address?.neighbourhood || r.name,
-        lat:  parseFloat(r.lat),
-        lng:  parseFloat(r.lon),
+        name:    r.address?.suburb || r.address?.neighbourhood || r.name,
+        lat:     parseFloat(r.lat),
+        lng:     parseFloat(r.lon),
+        polygon: null,
       }))
       .filter(n => n.name && !isNaN(n.lat) && !seen.has(n.name) && seen.add(n.name));
 
@@ -133,10 +195,79 @@ export default async function handler(req, res) {
     console.log("Nominatim fallback failed:", err.message);
   }
 
-  // ── Nothing found ─────────────────────────────────────────────────────
   return res.status(200).json({
     neighborhoods: [],
     message: `No neighborhoods found for ${city}. You can create one.`,
     source: "empty",
   });
+}
+
+// ── Simplify polygon to exactly N vertices ────────────────────────────────────
+// Uses Douglas-Peucker to keep geometrically significant vertices.
+function simplifyPolygon(coords, targetN) {
+  // Remove duplicate closing vertex if present
+  let ring = coords;
+  const first = coords[0], last = coords[coords.length - 1];
+  if (Math.abs(first.lat - last.lat) < 1e-7 && Math.abs(first.lng - last.lng) < 1e-7) {
+    ring = coords.slice(0, -1);
+  }
+
+  if (ring.length <= targetN) {
+    const padded = [...ring];
+    while (padded.length < targetN) padded.push(ring[ring.length - 1]);
+    return padded;
+  }
+
+  // Progressive simplification until we're at or below targetN
+  let simplified = ring;
+  let tolerance = 0.0005;
+  while (simplified.length > targetN && tolerance < 2) {
+    simplified = douglasPeucker(ring, tolerance);
+    tolerance *= 2;
+  }
+
+  // Even sample if still too many
+  if (simplified.length > targetN) {
+    const step = simplified.length / targetN;
+    simplified = Array.from({ length: targetN }, (_, i) =>
+      simplified[Math.min(Math.floor(i * step), simplified.length - 1)]
+    );
+  }
+
+  // Pad to exactly targetN
+  while (simplified.length < targetN) {
+    simplified.push(simplified[simplified.length - 1]);
+  }
+
+  return simplified.slice(0, targetN);
+}
+
+function douglasPeucker(points, tolerance) {
+  if (points.length <= 2) return points;
+  const first = points[0];
+  const last  = points[points.length - 1];
+  let maxDist = 0, maxIdx = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const d = perpendicularDistance(points[i], first, last);
+    if (d > maxDist) { maxDist = d; maxIdx = i; }
+  }
+  if (maxDist > tolerance) {
+    const left  = douglasPeucker(points.slice(0, maxIdx + 1), tolerance);
+    const right = douglasPeucker(points.slice(maxIdx), tolerance);
+    return [...left.slice(0, -1), ...right];
+  }
+  return [first, last];
+}
+
+function perpendicularDistance(point, lineStart, lineEnd) {
+  const dx = lineEnd.lng - lineStart.lng;
+  const dy = lineEnd.lat - lineStart.lat;
+  if (dx === 0 && dy === 0) {
+    return Math.sqrt(Math.pow(point.lat - lineStart.lat, 2) + Math.pow(point.lng - lineStart.lng, 2));
+  }
+  const t = ((point.lng - lineStart.lng) * dx + (point.lat - lineStart.lat) * dy) / (dx * dx + dy * dy);
+  return Math.sqrt(
+    Math.pow(point.lat - lineStart.lat - t * dy, 2) +
+    Math.pow(point.lng - lineStart.lng - t * dx, 2)
+  );
 }
