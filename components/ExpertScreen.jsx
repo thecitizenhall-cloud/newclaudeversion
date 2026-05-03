@@ -337,7 +337,10 @@ function QuestionCard({q, isExpert, currentUserId, onUpvote, onAnswer, isNew}){
             value={q.answerDraft||""} onChange={e=>onAnswer(q.id,"draft",e.target.value)}/>
           <div className="answer-submit-row">
             <button className="cancel-btn" onClick={()=>onAnswer(q.id,"cancel")}>Cancel</button>
-            <button className="submit-btn" disabled={!(q.answerDraft||"").trim()} onClick={()=>onAnswer(q.id,"submit")}>Post expert answer</button>
+            <button className="submit-btn" disabled={(q.answerDraft||"").trim().length<20} onClick={()=>onAnswer(q.id,"submit")}>Post expert answer</button>
+            {(q.answerDraft||"").length>0&&(q.answerDraft||"").length<20&&(
+              <span style={{fontSize:11,color:T.creamFaint}}>{20-(q.answerDraft||"").length} more chars needed</span>
+            )}
           </div>
         </div>
       )}
@@ -346,7 +349,7 @@ function QuestionCard({q, isExpert, currentUserId, onUpvote, onAnswer, isNew}){
         <button className={`q-btn${q.user_has_upvoted?" voted":""}`} onClick={()=>onUpvote(q)}>
           <UpIcon color={q.user_has_upvoted?T.amberHi:T.creamDim}/>{q.upvote_count||0}
         </button>
-        <button className="q-btn">Share</button>
+
         {isExpert&&!(q.expert_answers||[]).length&&!q.answering&&(
           <button className="q-btn answer-btn" onClick={()=>onAnswer(q.id,"open")}>Answer as expert →</button>
         )}
@@ -492,9 +495,11 @@ function TrustPanel({ profile, questions }) {
 // ── Main App ──────────────────────────────────────────────────────────────
 export default function ExpertScreen({ onNavigate }){
   useCSS("expertscreen-css", css);
-  const [tab,       setTab]       = useState("questions");
-  const [questions, setQuestions] = useState([]);
-  const [loading,   setLoading]   = useState(true);
+  const [tab,          setTab]          = useState("questions");
+  const [questions,    setQuestions]    = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [loadError,    setLoadError]    = useState(false);
+  const [filterDomain, setFilterDomain] = useState("all");
   const [askDraft,  setAskDraft]  = useState("");
   const [askDomain, setAskDomain] = useState("traffic");
   const [asking,    setAsking]    = useState(false);
@@ -502,7 +507,7 @@ export default function ExpertScreen({ onNavigate }){
   const [showApply, setShowApply] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [profile,   setProfile]   = useState(null);
-  const [neighborhood,setNeighborhood]=useState("Riverdale");
+  const [neighborhood,setNeighborhood]=useState("My Neighborhood");
   const [toast,     setToast]     = useState(null);
   const [newQIds,   setNewQIds]   = useState([]);
   const toastTimer  = useRef(null);
@@ -516,29 +521,36 @@ export default function ExpertScreen({ onNavigate }){
 
   useEffect(()=>{
     async function init(){
-      const {data:{user}}=await supabase.auth.getUser();
-      if(user){
-        setCurrentUser(user);
-        setNeighborhood(user.user_metadata?.neighborhood||"Riverdale");
-        const {data:prof}=await supabase.from("profiles").select("*").eq("id",user.id).single();
-        if(prof){ setProfile(prof); setIsExpert(prof.is_expert||false); }
+      try {
+        const {data:{user}}=await supabase.auth.getUser();
+        if(user){
+          setCurrentUser(user);
+          setNeighborhood(user.user_metadata?.neighborhood||"My Neighborhood");
+          const {data:prof}=await supabase.from("profiles").select("*").eq("id",user.id).maybeSingle();
+          if(prof){ setProfile(prof); setIsExpert(prof.is_expert||false); }
+          await loadQuestions(user);
+        } else {
+          await loadQuestions(null);
+        }
+      } catch(e) {
+        console.error("ExpertScreen init error:", e);
+      } finally {
+        setLoading(false);
       }
-      await loadQuestions(user);
-      setLoading(false);
     }
     init();
 
     channelRef.current=supabase.channel("expert-rt")
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"expert_questions"},async(payload)=>{
-        const {data}=await supabase.from("expert_questions").select("*, profiles(display_name,expert_org,is_expert), expert_answers(*, profiles(display_name,expert_org))").eq("id",payload.new.id).single();
+        const {data}=await supabase.from("expert_questions").select("*, profiles(display_name,expert_org,is_expert), expert_answers(*, profiles(display_name,expert_org))").eq("id",payload.new.id).maybeSingle();
         if(data){
-          setPosts(prev=>[{...data,answering:false,answerDraft:""},...prev]);
+          setQuestions(prev=>[{...data,answering:false,answerDraft:""},...prev]);
           setNewQIds(ids=>[...ids,data.id]);
           setTimeout(()=>setNewQIds(ids=>ids.filter(i=>i!==data.id)),1500);
         }
       })
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"expert_answers"},async(payload)=>{
-        const {data:ans}=await supabase.from("expert_answers").select("*, profiles(display_name,expert_org)").eq("id",payload.new.id).single();
+        const {data:ans}=await supabase.from("expert_answers").select("*, profiles(display_name,expert_org)").eq("id",payload.new.id).maybeSingle();
         if(ans){
           setQuestions(qs=>qs.map(q=>q.id===payload.new.question_id?{...q,expert_answers:[...(q.expert_answers||[]),ans]}:q));
         }
@@ -548,13 +560,15 @@ export default function ExpertScreen({ onNavigate }){
     return()=>{if(channelRef.current)channelRef.current.unsubscribe();};
   },[]);
 
-  function setPosts(fn){ setQuestions(fn); } // alias for realtime handler
+
 
   async function loadQuestions(user){
-    const {data}=await supabase.from("expert_questions")
+    const {data,error}=await supabase.from("expert_questions")
       .select("*, profiles(display_name,expert_org,is_expert), expert_answers(*, profiles(display_name,expert_org))")
       .order("created_at",{ascending:false}).limit(30);
+    if(error){ setLoadError(true); return; }
     if(!data) return;
+    setLoadError(false);
 
     // Check upvotes
     if(user&&data.length){
@@ -625,9 +639,10 @@ export default function ExpertScreen({ onNavigate }){
   }
 
 
-  const displayed = tab==="unanswered"
+  const displayed = (tab==="unanswered"
     ? questions.filter(q=>!(q.expert_answers||[]).length)
-    : questions;
+    : questions
+  ).filter(q => filterDomain==="all" || q.domain===filterDomain);
 
   const userInit=initials(currentUser?.user_metadata?.display_name||currentUser?.email||"?");
 
@@ -666,6 +681,20 @@ export default function ExpertScreen({ onNavigate }){
           </div>
 
           {(tab==="questions"||tab==="unanswered")&&(
+            <div style={{display:"flex",gap:6,padding:"10px 22px",borderBottom:`1px solid ${T.border}`,overflowX:"auto",flexShrink:0}}>
+              {[{key:"all",label:"All domains"},...DOMAINS.map(d=>({key:d.key,label:d.label}))].map(d=>(
+                <div key={d.key}
+                  onClick={()=>setFilterDomain(d.key)}
+                  style={{padding:"4px 12px",borderRadius:99,fontSize:11,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,
+                    background:filterDomain===d.key?T.purpleLo:"transparent",
+                    border:`1px solid ${filterDomain===d.key?T.purpleMid:T.border}`,
+                    color:filterDomain===d.key?T.purpleHi:T.creamDim,transition:"all 0.15s"}}>
+                  {d.label}
+                </div>
+              ))}
+            </div>
+          )}
+          {(tab==="questions"||tab==="unanswered")&&(
             <div className="ask-box">
               <textarea className="ask-area" rows={2} placeholder="Ask a question for the expert panel…" value={askDraft}
                 onChange={e=>setAskDraft(e.target.value)}
@@ -684,10 +713,18 @@ export default function ExpertScreen({ onNavigate }){
           )}
 
           {(tab==="questions"||tab==="unanswered")&&(
-            loading
+            loadError
+              ? <div style={{textAlign:"center",padding:"40px 20px"}}>
+                  <div style={{fontSize:13,color:T.creamDim,marginBottom:12}}>Couldn't load questions.</div>
+                  <button onClick={()=>{setLoadError(false);loadQuestions(currentUser);}}
+                    style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 18px",fontSize:12,color:T.creamDim,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>
+                    Try again
+                  </button>
+                </div>
+              : loading
               ? <div className="th-loading"><div className="th-spinner"/>Loading questions…</div>
               : displayed.length===0
-                ? <div className="th-empty">No questions yet.<br/>Ask the first one above.</div>
+                ? <div className="th-empty">{filterDomain!=="all"?"No questions in this domain yet.":"No questions yet."}<br/>Ask the first one above.</div>
                 : displayed.map(q=>(
                     <QuestionCard key={q.id} q={q}
                       isExpert={isExpert}
@@ -752,7 +789,7 @@ export default function ExpertScreen({ onNavigate }){
         </div>
 
         {/* Right: trust panel — hidden on mobile */}
-        <TrustPanel profile={profile} questions={questions}/>
+        <TrustPanel profile={profile} questions={questions} onNavigate={onNavigate}/>
 
       </div>
 

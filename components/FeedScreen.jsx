@@ -79,12 +79,12 @@ const css = `
     height: 100%;
   }
 
-  .th-feed-header { padding:14px 16px 12px; border-bottom:1px solid ${T.border}; position:sticky; top:0; background:${T.bg}; z-index:10; display:flex; align-items:center; gap:10px; }
+  .th-feed-header { padding:14px 16px 12px; border-bottom:1px solid ${T.border}; position:sticky; top:0; background:${T.bg}; z-index:10; display:flex; align-items:center; gap:10px; height:57px; box-sizing:border-box; }
   .th-app-desktop .th-feed-header { padding:16px 20px 12px; }
   .th-feed-title { font-family:'DM Serif Display',serif; font-size:18px;color:${T.cream}; }
   .th-feed-title em { font-style:italic; color:${T.amberHi}; }
 
-  .th-filter-row { display:flex;gap:6px;padding:10px 16px; border-bottom:1px solid ${T.border}; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .th-filter-row { display:flex;gap:6px;padding:10px 16px; border-bottom:1px solid ${T.border}; overflow-x:auto; -webkit-overflow-scrolling:touch; position:sticky; top:57px; background:${T.bg}; z-index:9; }
   .th-app-desktop .th-filter-row { padding:10px 20px; }
   .th-filter-row::-webkit-scrollbar { display:none; }
   .th-filter-pill { display:flex;align-items:center;gap:5px; padding:5px 12px;border-radius:99px; border:1px solid ${T.border}; font-size:12px;color:${T.creamDim}; cursor:pointer;white-space:nowrap; transition:all 0.15s;flex-shrink:0; }
@@ -276,6 +276,26 @@ function StatusPill({ status }) {
 }
 
 // ── Post Card ─────────────────────────────────────────────────────────────
+function NewsCard({ article }) {
+  return (
+    <a href={article.url} target="_blank" rel="noopener noreferrer"
+      style={{ display:"block", padding:"14px 16px", borderBottom:`1px solid ${T.border}`, textDecoration:"none", transition:"background 0.15s" }}
+      onMouseEnter={e=>e.currentTarget.style.background=T.surfaceHi+"44"}
+      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+        <div style={{ width:28, height:28, borderRadius:7, background:T.blueLo, border:`1px solid ${T.blue}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, flexShrink:0 }}>📰</div>
+        <div>
+          <div style={{ fontSize:10, color:T.blueHi, fontWeight:500, textTransform:"uppercase", letterSpacing:"0.06em" }}>{article.source} · Local News</div>
+          <div style={{ fontSize:10, color:T.creamFaint }}>{new Date(article.publishedAt).toLocaleDateString()}</div>
+        </div>
+        <div style={{ marginLeft:"auto", fontSize:10, color:T.blueHi, opacity:0.7 }}>↗</div>
+      </div>
+      <div style={{ fontSize:13, color:T.cream, fontWeight:500, lineHeight:1.4, marginBottom:4 }}>{article.title}</div>
+      {article.summary && <div style={{ fontSize:12, color:T.creamDim, lineHeight:1.5 }}>{article.summary}</div>}
+    </a>
+  );
+}
+
 function FlagIcon({ color }) {
   return <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 1v9M2 1h6l-1.5 3L8 7H2" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
@@ -284,11 +304,17 @@ function PostCard({ post, currentUserId, onVote, onEscalate, isNew }) {
   const [esc,      setEsc]      = useState(false);
   const [reported, setReported] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const a    = av(post.author_id);
-  const name = post.profiles?.display_name || "Resident";
-  const hood = post.profiles?.neighborhood  || "Townhall";
+  const a      = av(post.author_id);
+  const name   = post.profiles?.display_name || "Resident";
+  const hood   = post.profiles?.neighborhood  || "Townhall";
+  const isBot  = post.profiles?.is_bot || false;
+  const source = post.source_name || null;
 
-  function handleEsc() { setEsc(true); setTimeout(() => onEscalate(post), 450); }
+  function handleEsc() {
+    if (!window.confirm("Move this post to the civic tracker? This can't be undone.")) return;
+    setEsc(true);
+    setTimeout(() => onEscalate(post), 450);
+  }
 
   async function handleReport(reason) {
     setShowMenu(false);
@@ -308,15 +334,29 @@ function PostCard({ post, currentUserId, onVote, onEscalate, isNew }) {
       style={{ position:"relative" }}
       onMouseLeave={() => setShowMenu(false)}>
       <div className="th-post-meta">
-        <div className="th-post-avatar" style={{ background:a.bg, color:a.color }}>{initials(name)}</div>
+        {isBot ? (
+          <div style={{width:34,height:34,borderRadius:9,background:"#0D1E35",border:"1px solid #378ADD44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>
+            🏛️
+          </div>
+        ) : (
+          <div className="th-post-avatar" style={{ background:a.bg, color:a.color }}>{initials(name)}</div>
+        )}
         <div>
-          <div className="th-post-author">{name}{post.author_id===currentUserId&&<span style={{fontSize:10,color:T.amberHi,marginLeft:6}}>you</span>}</div>
+          <div className="th-post-author" style={{display:"flex",alignItems:"center",gap:6}}>
+            {name}
+            {isBot && source && (
+              <span style={{fontSize:10,background:"#0D1E35",color:"#85B7EB",border:"1px solid #378ADD44",borderRadius:99,padding:"1px 7px",fontWeight:400}}>
+                {source}
+              </span>
+            )}
+            {!isBot && post.author_id===currentUserId && <span style={{fontSize:10,color:T.amberHi}}>you</span>}
+          </div>
           <div className="th-post-hood">{hood}</div>
         </div>
         <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6 }}>
           <div className="th-post-time">{timeAgo(post.created_at)}</div>
-          {/* Report button — only show on other people's posts */}
-          {post.author_id !== currentUserId && (
+          {/* Report button — only show on other people's real posts, not bot */}
+          {post.author_id !== currentUserId && !isBot && (
             <div style={{ position:"relative" }}>
               <button
                 onClick={() => setShowMenu(m => !m)}
@@ -356,7 +396,15 @@ function PostCard({ post, currentUserId, onVote, onEscalate, isNew }) {
         <button className={`th-action-btn${post.user_has_upvoted?" voted":""}`} onClick={()=>onVote(post)}>
           <UpIcon color={post.user_has_upvoted?T.amberHi:T.creamDim}/>{post.upvote_count||0}
         </button>
-        <button className="th-action-btn">Reply</button>
+        {post.source_url && (
+          <a href={post.source_url} target="_blank" rel="noopener noreferrer"
+            style={{display:"flex",alignItems:"center",gap:4,padding:"6px 10px",borderRadius:6,fontSize:12,color:T.blueHi,textDecoration:"none",transition:"all 0.15s"}}
+            onMouseEnter={e=>e.currentTarget.style.background=T.blueLo}
+            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+            View source ↗
+          </a>
+        )}
+
         {!post.escalated&&(post.tags||[]).some(t=>["issue","banter"].includes(t))&&(
           <button className="th-action-btn escalate-btn" onClick={handleEsc}><EscIcon color={T.blue}/> Escalate</button>
         )}
@@ -371,7 +419,7 @@ function IssueCard({ issue, onVote, isNew }) {
   return (
     <div className={`th-issue-card${isNew?" new-issue":""}`}>
       <div className="th-issue-top"><div className="th-issue-num">#{issue.issue_number||"?"}</div><div className="th-issue-title">{issue.title}</div></div>
-      <div className="th-issue-source">{issue.source_label||"Escalated from banter"}</div>
+      <div className="th-issue-source">{issue.source_label||"Escalated from banter"}{issue.created_at && <span style={{marginLeft:6,color:"#4A4640"}}>· {timeAgo(issue.created_at)}</span>}</div>
       <StatusPill status={issue.status||"open"}/>
       <div className="th-issue-bar-wrap">
         <div className="th-issue-bar-bg"><div className="th-issue-bar-fill" style={{"--w":`${issue.priority_pct||0}%`,width:`${issue.priority_pct||0}%`}}/></div>
@@ -390,14 +438,14 @@ function IssueCard({ issue, onVote, isNew }) {
 function IssuesPanel({ issues, onVote, newIssueIds }) {
   return (
     <>
-      {issues.length===0&&<div className="th-empty" style={{padding:"30px 0"}}>No issues yet.<br/>Escalate a post to start.</div>}
+      {issues.length===0&&<div className="th-empty" style={{padding:"30px 0"}}>No civic issues yet.<br/>Escalate a post from the feed to start.</div>}
       {issues.map(issue=><IssueCard key={issue.id} issue={issue} onVote={onVote} isNew={newIssueIds.includes(issue.id)}/>)}
     </>
   );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
-export default function FeedScreen({ onNavigate }) {
+export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNewPost }) {
   useCSS("feedscreen-css", css);
   const [posts,        setPosts]        = useState([]);
   const [issues,       setIssues]       = useState([]);
@@ -410,13 +458,17 @@ export default function FeedScreen({ onNavigate }) {
   const [newPostIds,   setNewPostIds]   = useState([]);
   const [newIssueIds,  setNewIssueIds]  = useState([]);
   const [currentUser,  setCurrentUser]  = useState(null);
-  const [neighborhood,   setNeighborhood]   = useState("Riverdale");
+  const [tick,         setTick]         = useState(0); // forces timestamp re-render
+  const [neighborhood,   setNeighborhood]   = useState("My Neighborhood");
   const [neighborhoodId,  setNeighborhoodId]  = useState(null);
   const [showIssues,   setShowIssues]   = useState(false); // mobile civic sheet
   const [loadError,    setLoadError]    = useState(null);
   const [isOffline,    setIsOffline]    = useState(false);
+  const [newsCards,    setNewsCards]    = useState([]);
+  const [newsLoading,  setNewsLoading]  = useState(false);
   const toastTimer  = useRef(null);
   const channelRef  = useRef(null);
+  const hoodIdRef   = useRef(null);
 
   function showToast(msg) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -424,22 +476,28 @@ export default function FeedScreen({ onNavigate }) {
     toastTimer.current = setTimeout(() => setToast(null), 3000);
   }
 
+  // Open civic panel immediately if navigated via Civic tab
+  useEffect(() => {
+    if (initialCivicOpen && window.innerWidth < 768) setShowIssues(true);
+  }, [initialCivicOpen]);
+
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCurrentUser(user);
-        const hood = user.user_metadata?.neighborhood || "Riverdale";
+        const hood = user.user_metadata?.neighborhood || "My Neighborhood";
         setNeighborhood(hood);
         // Fetch the neighborhood_id for filtering
         const { data: prof } = await supabase
           .from("profiles")
           .select("neighborhood_id")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
         const hoodId = prof?.neighborhood_id || null;
         console.log("profile neighborhood_id:", hoodId);
         setNeighborhoodId(hoodId);
+        hoodIdRef.current = hoodId;
         await loadPosts(user, hoodId);
       } else {
         await loadPosts(null, null);
@@ -451,13 +509,17 @@ export default function FeedScreen({ onNavigate }) {
 
     channelRef.current = supabase.channel("posts-rt")
       .on("postgres_changes", { event:"INSERT", schema:"public", table:"posts" }, async (payload) => {
-        const { data } = await supabase.from("posts").select("*, profiles(display_name,neighborhood)").eq("id", payload.new.id).single();
+        const { data } = await supabase.from("posts").select("*, profiles(display_name,neighborhood,is_bot)").eq("id", payload.new.id).maybeSingle();
         if (data) {
           // Only add to feed if it belongs to this user's neighborhood
-          if (neighborhoodId && data.neighborhood_id && data.neighborhood_id !== neighborhoodId) return;
+          if (hoodIdRef.current && data.neighborhood_id && data.neighborhood_id !== hoodIdRef.current) return;
           setPosts(prev => [data, ...prev]);
           setNewPostIds(ids => [...ids, data.id]);
           setTimeout(() => setNewPostIds(ids => ids.filter(i=>i!==data.id)), 1500);
+          // Signal parent that a new post arrived (used for sidebar badge)
+          // onNewPost is called to *clear* the badge when on feed — 
+          // parent sets badge on new post, clears on navigate to feed
+          // For now just keep the ref — badge is driven by index.jsx
         }
       })
       .on("postgres_changes", { event:"UPDATE", schema:"public", table:"posts" }, (payload) => {
@@ -472,10 +534,13 @@ export default function FeedScreen({ onNavigate }) {
     window.addEventListener("offline", handleOffline);
     setIsOffline(!navigator.onLine);
 
+    const tickInterval = setInterval(() => setTick(t => t + 1), 60000);
+
     return () => {
       if (channelRef.current) channelRef.current.unsubscribe();
       window.removeEventListener("online",  handleOnline);
       window.removeEventListener("offline", handleOffline);
+      clearInterval(tickInterval);
     };
   }, []);
 
@@ -483,7 +548,7 @@ export default function FeedScreen({ onNavigate }) {
     // Simplified — load all posts, no filter
     const { data, error } = await supabase
       .from("posts")
-      .select("*, profiles(display_name,neighborhood)")
+      .select("*, profiles(display_name,neighborhood,is_bot)")
       .order("created_at", { ascending:false })
       .limit(50);
 
@@ -495,11 +560,40 @@ export default function FeedScreen({ onNavigate }) {
       data.forEach(p => { p.user_has_upvoted = set.has(p.id); });
     }
     setPosts(data);
+    // Load local news if feed is sparse
+    if (data.length < 5) {
+      try {
+        // Get city from neighborhood
+        const { data: hood } = await supabase.from("neighborhoods")
+          .select("city_id, cities(name, state)")
+          .eq("id", hoodId || "00000000-0000-0000-0000-000000000000")
+          .maybeSingle();
+        const cityName = hood?.cities?.name || neighborhood;
+        const cityState = hood?.cities?.state || "";
+        await loadNews(cityName, cityState);
+      } catch(e) {
+        await loadNews(neighborhood, "");
+      }
+    }
   }
 
   async function loadIssues() {
     const { data } = await supabase.from("civic_issues").select("*").neq("status","resolved").order("priority_pct", { ascending:false }).limit(20);
     setIssues((data||[]).map((iss,i) => ({...iss, issue_number:i+1})));
+  }
+
+  async function loadNews(cityName, cityState) {
+    if (!cityName || cityName === "My Neighborhood") return;
+    setNewsLoading(true);
+    try {
+      const stateParam = cityState ? `&state=${encodeURIComponent(cityState)}` : "";
+      const res = await fetch(`/api/local-news?city=${encodeURIComponent(cityName)}${stateParam}`);
+      const data = await res.json();
+      setNewsCards(data.articles || []);
+    } catch(e) {
+      console.log("News load error:", e.message);
+    }
+    setNewsLoading(false);
   }
 
   async function handlePost() {
@@ -508,7 +602,7 @@ export default function FeedScreen({ onNavigate }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { showToast("Please sign in"); setPosting(false); return; }
     // Get neighborhood_id from profile
-    const { data: prof } = await supabase.from("profiles").select("neighborhood_id").eq("id", user.id).single();
+    const { data: prof } = await supabase.from("profiles").select("neighborhood_id").eq("id", user.id).maybeSingle();
     const { error } = await supabase.from("posts").insert({
       author_id:       user.id,
       neighborhood_id: prof?.neighborhood_id || null,
@@ -543,16 +637,17 @@ export default function FeedScreen({ onNavigate }) {
 
   async function handleEscalate(post) {
     const title = post.body.length>100 ? post.body.slice(0,100)+"…" : post.body;
-    const { data: issue, error } = await supabase.from("civic_issues").insert({ source_post_id:post.id, title, status:"escalated", voice_count:0, priority_pct:5, source_label:`Escalated · ${post.profiles?.display_name||"Resident"}` }).select().single();
+    const { data: profEsc } = await supabase.from("profiles").select("neighborhood_id").eq("id", currentUser?.id).maybeSingle();
+    const { data: issue, error } = await supabase.from("civic_issues").insert({ source_post_id:post.id, neighborhood_id:profEsc?.neighborhood_id||null, title, status:"escalated", voice_count:0, priority_pct:5, source_label:`Escalated · ${post.profiles?.display_name||"Resident"}` }).select().single();
     if (error) { showToast("Escalation failed"); return; }
     await supabase.from("posts").update({ escalated:true, escalated_issue_id:issue.id }).eq("id", post.id);
     const num = issues.length + 1;
-    const ni = {...issue, issue_number:num, user_has_voted:false};
+    const ni = {...issue, issue_number:num, user_has_voted:false, created_at:issue.created_at||new Date().toISOString()};
     setIssues(prev => [ni, ...prev]);
     setNewIssueIds(ids => [...ids, issue.id]);
     setTimeout(() => setNewIssueIds(ids => ids.filter(i=>i!==issue.id)), 2000);
     showToast(`Escalated as civic issue #${num}`);
-    if (isMobile) setShowIssues(true);
+    if (window.innerWidth < 768) setShowIssues(true);
   }
 
   async function handleIssueVote(issue) {
@@ -589,9 +684,14 @@ export default function FeedScreen({ onNavigate }) {
           <div className="th-compose">
             <textarea className="th-compose-input" rows={2}
               placeholder={`Share something with ${neighborhood}…`}
-              value={draft} onChange={e=>setDraft(e.target.value)}
+              value={draft} onChange={e=>setDraft(e.target.value.slice(0,2000))}
               onKeyDown={e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))handlePost();}}
             />
+            {draft.length > 1600 && (
+              <div style={{fontSize:11,textAlign:"right",color:draft.length>1900?T.red:draft.length>1800?T.amberHi:T.creamDim,marginTop:-6}}>
+                {draft.length} / 2000
+              </div>
+            )}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               {/* Tag chips only appear once user starts typing */}
               <div className="th-tag-row" style={{
@@ -630,7 +730,29 @@ export default function FeedScreen({ onNavigate }) {
           )}
 
           {loading&&!loadError&&<div className="th-loading"><div className="th-spinner"/>Loading…</div>}
-          {!loading&&!loadError&&filtered.length===0&&<div className="th-empty">No posts yet in {neighborhood}.<br/>Be the first to share something.</div>}
+          {!loading&&!loadError&&filtered.length===0&&(
+            <>
+              <div className="th-empty" style={{paddingBottom:8}}>
+                {filter==="all" && <>{neighborhood} is quiet right now.<br/>Be the first to share something.</>}
+                {filter==="escalated" && <>No escalated posts yet.<br/>Escalate a post above to move it to the civic tracker.</>}
+                {filter==="banter" && <>No banter posts yet.<br/>Share something with your neighbors.</>}
+                {filter==="issue" && <>No issues posted yet.<br/>Tag a post as an issue to flag it for the community.</>}
+                {filter==="bulletin" && <>No bulletins yet.<br/>Post a bulletin to share an announcement.</>}
+              </div>
+              {newsCards.length > 0 && (
+                <div style={{borderTop:`1px solid ${T.border}`}}>
+                  <div style={{padding:"10px 16px 6px",fontSize:10,fontWeight:500,color:T.creamFaint,textTransform:"uppercase",letterSpacing:"0.08em"}}>Local news from your area</div>
+                  {newsCards.map((a,i) => <NewsCard key={i} article={a}/>)}
+                </div>
+              )}
+            </>
+          )}
+          {!loading&&!loadError&&filtered.length>0&&filtered.length<5&&newsCards.length>0&&(
+            <div style={{borderTop:`1px solid ${T.border}`,marginTop:8}}>
+              <div style={{padding:"10px 16px 6px",fontSize:10,fontWeight:500,color:T.creamFaint,textTransform:"uppercase",letterSpacing:"0.08em"}}>Local news from your area</div>
+              {newsCards.map((a,i) => <NewsCard key={i} article={a}/>)}
+            </div>
+          )}
           {!loading&&filtered.map(post=>(
             <PostCard key={post.id} post={post} currentUserId={currentUser?.id}
               onVote={handleVote} onEscalate={handleEscalate} isNew={newPostIds.includes(post.id)}/>
