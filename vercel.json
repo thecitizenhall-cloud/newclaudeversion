@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/civic-sync?city=Jackson&state=NJ&lat=40.1&lng=-74.35&neighborhood_id=58e6f680-8339-4787-abf2-1773f757da0b",
-      "schedule": "0 */2 * * *"
+      "path": "/api/civic-sync",
+      "schedule": "0 8 * * *"
     }
   ]
 }
