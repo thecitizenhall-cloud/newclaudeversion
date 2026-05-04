@@ -356,10 +356,6 @@ export default function ProfileScreen({ onNavigate, onSignOut }) {
         <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:18, color:T.cream, flex:1 }}>
           Your <em style={{ fontStyle:"italic", color:T.amberHi }}>profile</em>
         </div>
-        <button onClick={() => onNavigate && onNavigate("feed")}
-          style={{ background:"transparent", border:`1px solid ${T.border}`, borderRadius:7, padding:"5px 12px", fontFamily:"'DM Sans',sans-serif", fontSize:12, color:T.creamDim, cursor:"pointer" }}>
-          ← Back to feed
-        </button>
       </div>
 
       <div style={{ maxWidth:640, margin:"0 auto", padding:"28px 24px" }}>

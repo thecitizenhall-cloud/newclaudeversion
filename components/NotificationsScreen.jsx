@@ -381,9 +381,9 @@ export default function NotificationsScreen({ onNavigate }) {
           {loadingNotifs && <div className="th-loading"><div className="th-spinner" />Loading notifications...</div>}
           {!loadingNotifs && notifs.length === 0 && (
             <div className="th-empty">
-              No notifications yet.<br />
+              🔔 You're all caught up<br />
               <span style={{fontSize:12,color:T.creamFaint,display:"block",marginTop:4,marginBottom:16}}>
-                Post something, upvote a civic issue, or ask an expert question to start getting notified.
+                Notifications will appear when neighbors respond to your posts, experts answer your questions, or civic issues you follow get updated.
               </span>
               <button onClick={()=>onNavigate&&onNavigate("feed")}
                 style={{background:T.amberLo,border:`1px solid ${T.amberMid}`,borderRadius:8,padding:"8px 18px",
