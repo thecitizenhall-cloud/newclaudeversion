@@ -304,13 +304,13 @@ export default function Home() {
     <>
       <style>{`
         .app-shell { display:grid; grid-template-columns:200px 1fr; height:100vh; overflow:hidden; }
-        .app-sidebar { display:flex; flex-direction:column; }
-        .app-content { overflow:hidden; display:flex; flex-direction:column; height:100vh; }
+        .app-sidebar { display:flex; flex-direction:column; width:200px; flex-shrink:0; }
+        .app-content { overflow:hidden; display:flex; flex-direction:column; height:100vh; min-width:0; }
         .app-bottom-tabs { display:none; }
         @media(max-width:767px) {
-          .app-shell { grid-template-columns:1fr; }
-          .app-sidebar { display:none; }
-          .app-content { height:calc(100vh - 60px - env(safe-area-inset-bottom)); }
+          .app-shell { display:block; }
+          .app-sidebar { display:none !important; width:0; }
+          .app-content { height:calc(100vh - 60px - env(safe-area-inset-bottom)); width:100vw; }
           .app-bottom-tabs { display:flex; position:fixed; bottom:0; left:0; right:0; z-index:50;
             padding-bottom:env(safe-area-inset-bottom); background:#1A1916; }
         }
