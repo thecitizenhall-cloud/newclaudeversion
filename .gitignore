@@ -34,3 +34,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ZK artifacts — large/generated, not needed in repo
+public/zk/vkey.json
+public/zk/*.ptau
+public/zk/residency_0000.zkey
+public/zk/*.r1cs
+public/zk/*.sym
