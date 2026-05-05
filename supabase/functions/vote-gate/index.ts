@@ -154,13 +154,7 @@ serve(async (req: Request) => {
   }
 
   // 5. Award trust points for civic participation
-  await supabase
-    .from("profiles")
-    .update({
-      trust_score: supabase.rpc("increment_trust", { user_id: user.id, points: 5 }),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", user.id);
+  await supabase.rpc("increment_trust", { uid: user.id, points: 5 }).maybeSingle();
 
   // Fetch updated issue stats to return
   const { data: updated } = await supabase

@@ -415,9 +415,15 @@ function PostCard({ post, currentUserId, onVote, onEscalate, isNew }) {
 }
 
 // ── Issue Card ────────────────────────────────────────────────────────────
-function IssueCard({ issue, onVote, isNew }) {
+function IssueCard({ issue, onVote, isNew, onNavigate }) {
   return (
-    <div className={`th-issue-card${isNew?" new-issue":""}`}>
+    <div className={`th-issue-card${isNew?" new-issue":""}`}
+      style={{ cursor:"pointer" }}
+      onClick={e => {
+        // Don't navigate if they clicked the vote button
+        if (e.target.closest(".th-vote-btn")) return;
+        onNavigate && onNavigate("issue", { issueId: issue.id });
+      }}>
       <div className="th-issue-top"><div className="th-issue-num">#{issue.issue_number||"?"}</div><div className="th-issue-title">{issue.title}</div></div>
       <div className="th-issue-source">{issue.source_label||"Escalated from banter"}{issue.created_at && <span style={{marginLeft:6,color:"#4A4640"}}>· {timeAgo(issue.created_at)}</span>}</div>
       <StatusPill status={issue.status||"open"}/>
@@ -430,16 +436,20 @@ function IssueCard({ issue, onVote, isNew }) {
         {issue.user_has_voted?<><CheckSm color={T.blueHi}/>You&apos;ve prioritised this</>:<><UpIcon color={T.creamDim}/>Mark as priority · ZK verified</>}
       </button>
       {!issue.user_has_voted&&<div className="th-zk-note"><CheckSm color={T.tealHi}/>Anonymous · residency verified</div>}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8}}>
+        <span style={{fontSize:10,color:T.creamFaint}}>{issue.reply_count>0?`${issue.reply_count} ${issue.reply_count===1?"reply":"replies"}`:"No replies yet"}</span>
+        <span style={{fontSize:10,color:T.borderHi}}>View thread →</span>
+      </div>
     </div>
   );
 }
 
 // ── Issues panel content (shared between desktop + mobile sheet) ──────────
-function IssuesPanel({ issues, onVote, newIssueIds }) {
+function IssuesPanel({ issues, onVote, newIssueIds, onNavigate }) {
   return (
     <>
       {issues.length===0&&<div className="th-empty" style={{padding:"30px 0"}}>No civic issues yet.<br/>Escalate a post from the feed to start.</div>}
-      {issues.map(issue=><IssueCard key={issue.id} issue={issue} onVote={onVote} isNew={newIssueIds.includes(issue.id)}/>)}
+      {issues.map(issue=><IssueCard key={issue.id} issue={issue} onVote={onVote} isNew={newIssueIds.includes(issue.id)} onNavigate={onNavigate}/>)}
     </>
   );
 }
@@ -517,7 +527,7 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNew
           setNewPostIds(ids => [...ids, data.id]);
           setTimeout(() => setNewPostIds(ids => ids.filter(i=>i!==data.id)), 1500);
           // Signal parent that a new post arrived (used for sidebar badge)
-          // onNewPost is called to *clear* the badge when on feed — 
+          // onNewPost is called to *clear* the badge when on feed —
           // parent sets badge on new post, clears on navigate to feed
           // For now just keep the ref — badge is driven by index.jsx
         }
@@ -651,11 +661,64 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNew
   }
 
   async function handleIssueVote(issue) {
-    if (!currentUser||issue.user_has_voted) return;
-    const { error } = await supabase.from("votes").insert({ user_id:currentUser.id, issue_id:issue.id, proof_hash:`stub_${currentUser.id}_${issue.id}` });
-    if (error&&error.code!=="23505") { showToast("Vote failed"); return; }
-    setIssues(prev => prev.map(i => i.id===issue.id ? {...i, user_has_voted:true, voice_count:(i.voice_count||0)+1, priority_pct:Math.min(99,(i.priority_pct||0)+3)} : i));
-    showToast("Priority vote counted");
+    if (!currentUser || issue.user_has_voted) return;
+
+    // Get the user's stored residency proof hash from onboarding
+    const { data: residencyProof } = await supabase
+      .from("residency_proofs")
+      .select("proof_hash, expires_at")
+      .eq("user_id", currentUser.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!residencyProof?.proof_hash) {
+      showToast("Residency proof required to vote");
+      return;
+    }
+
+    if (new Date(residencyProof.expires_at) < new Date()) {
+      showToast("Your residency proof has expired — please re-verify");
+      return;
+    }
+
+    // Send to vote-gate edge function for real ZK verification
+    const { data: { session } } = await supabase.auth.getSession();
+    const resp = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/vote-gate`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          issueId:   issue.id,
+          proofHash: residencyProof.proof_hash,
+        }),
+      }
+    );
+
+    const result = await resp.json();
+
+    if (!resp.ok) {
+      if (resp.status === 409) {
+        // Already voted — update UI to reflect that
+        setIssues(prev => prev.map(i => i.id===issue.id ? {...i, user_has_voted:true} : i));
+      } else {
+        showToast(result.error || "Vote failed");
+      }
+      return;
+    }
+
+    // Update optimistically with server-returned counts
+    setIssues(prev => prev.map(i => i.id===issue.id ? {
+      ...i,
+      user_has_voted: true,
+      voice_count:    result.voiceCount  ?? (i.voice_count  || 0) + 1,
+      priority_pct:   result.priorityPct ?? Math.min(99, (i.priority_pct || 0) + 3),
+    } : i));
+    showToast("Anonymous vote recorded ✓");
   }
 
   const filtered = filter==="all" ? posts : filter==="escalated" ? posts.filter(p=>p.escalated) : posts.filter(p=>(p.tags||[]).includes(filter));
