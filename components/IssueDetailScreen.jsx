@@ -375,7 +375,6 @@ export default function IssueDetailScreen({ issueId, onBack, onNavigate }) {
       issue_id:  issueId,
       author_id: currentUser.id,
       body,
-      proof_hash: `stub_reply_${currentUser.id}_${Date.now()}`,
     });
     if (error) {
       showToast("Failed to post reply");
