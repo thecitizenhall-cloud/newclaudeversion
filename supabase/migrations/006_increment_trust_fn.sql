@@ -3,6 +3,8 @@
 -- Atomic trust score increment function called by vote-gate edge function.
 -- Uses a plain update rather than a stored procedure to avoid race conditions.
 
+drop function if exists increment_trust(uuid, integer);
+
 create or replace function increment_trust(uid uuid, points integer)
 returns void language plpgsql security definer as $$
 begin
