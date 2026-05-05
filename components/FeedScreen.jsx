@@ -432,10 +432,18 @@ function IssueCard({ issue, onVote, isNew, onNavigate }) {
         <span className="th-issue-pct">{issue.priority_pct||0}%</span>
       </div>
       <div style={{fontSize:10,color:T.creamFaint,marginBottom:10}}>{issue.voice_count||0} verified voices</div>
-      <button className={`th-vote-btn${issue.user_has_voted?" voted":""}`} onClick={()=>onVote(issue)}>
-        {issue.user_has_voted?<><CheckSm color={T.blueHi}/>You&apos;ve prioritised this</>:<><UpIcon color={T.creamDim}/>Mark as priority · ZK verified</>}
-      </button>
-      {!issue.user_has_voted&&<div className="th-zk-note"><CheckSm color={T.tealHi}/>Anonymous · residency verified</div>}
+      {typeof onVote === "function" && !issue._guestMode ? (
+        <>
+          <button className={`th-vote-btn${issue.user_has_voted?" voted":""}`} onClick={()=>onVote(issue)}>
+            {issue.user_has_voted?<><CheckSm color={T.blueHi}/>You&apos;ve prioritised this</>:<><UpIcon color={T.creamDim}/>Mark as priority · ZK verified</>}
+          </button>
+          {!issue.user_has_voted&&<div className="th-zk-note"><CheckSm color={T.tealHi}/>Anonymous · residency verified</div>}
+        </>
+      ) : (
+        <button className="th-vote-btn" onClick={issue._onJoin} style={{borderStyle:"dashed"}}>
+          <UpIcon color={T.creamFaint}/> Verify residency to vote
+        </button>
+      )}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8}}>
         <span style={{fontSize:10,color:T.creamFaint}}>{issue.reply_count>0?`${issue.reply_count} ${issue.reply_count===1?"reply":"replies"}`:"No replies yet"}</span>
         <span style={{fontSize:10,color:T.borderHi}}>View thread →</span>
@@ -455,7 +463,7 @@ function IssuesPanel({ issues, onVote, newIssueIds, onNavigate }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
-export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNewPost }) {
+export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNewPost, guestMode = false, onJoin }) {
   useCSS("feedscreen-css", css);
   const [posts,        setPosts]        = useState([]);
   const [issues,       setIssues]       = useState([]);
@@ -660,6 +668,11 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNew
     if (window.innerWidth < 768) setShowIssues(true);
   }
 
+  // In guest mode, tag issues so IssueCard can show join CTA instead of vote
+  const issuesWithGuestFlag = guestMode
+    ? issues.map(i => ({ ...i, _guestMode: true, _onJoin: onJoin }))
+    : issues;
+
   async function handleIssueVote(issue) {
     if (!currentUser || issue.user_has_voted) return;
 
@@ -744,6 +757,18 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNew
               <div key={f.key} className={`th-filter-pill${filter===f.key?" active":""}`} onClick={()=>setFilter(f.key)}>{f.label}</div>
             ))}
           </div>
+          {guestMode ? (
+            <div style={{ padding:"12px 16px", borderBottom:`1px solid ${T.border}` }}>
+              <button onClick={onJoin} style={{
+                width:"100%", padding:"10px", borderRadius:9,
+                background:T.amberLo, border:`1px solid ${T.amberMid}`,
+                fontFamily:"'DM Sans',sans-serif", fontSize:13,
+                color:T.amberHi, cursor:"pointer",
+              }}>
+                Verify residency to post in this neighborhood →
+              </button>
+            </div>
+          ) : (
           <div className="th-compose">
             <textarea className="th-compose-input" rows={2}
               placeholder={`Share something with ${neighborhood}…`}
@@ -772,6 +797,7 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNew
               <button className="th-post-btn" onClick={handlePost} disabled={!draft.trim()||posting}>{posting?"Posting…":"Post"}</button>
             </div>
           </div>
+          )}
           {/* Offline banner */}
           {isOffline && (
             <div style={{ margin:"12px 16px", padding:"10px 14px", background:"#2A1E08", border:"1px solid #8C5E14", borderRadius:9, fontSize:12, color:"#F0B84A", display:"flex", alignItems:"center", gap:8 }}>
@@ -829,7 +855,7 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNew
             <div className="th-tracker-sub">{issues.length} open · ZK-gated voting</div>
           </div>
           <div className="th-tracker-body">
-            <IssuesPanel issues={issues} onVote={handleIssueVote} newIssueIds={newIssueIds}/>
+            <IssuesPanel issues={issuesWithGuestFlag} onVote={handleIssueVote} newIssueIds={newIssueIds} onNavigate={onNavigate}/>
           </div>
         </div>
       </div>
@@ -848,7 +874,7 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNew
               <button className="th-civic-sheet-close" onClick={()=>setShowIssues(false)}>×</button>
             </div>
             <div className="th-civic-sheet-body">
-              <IssuesPanel issues={issues} onVote={handleIssueVote} newIssueIds={newIssueIds}/>
+              <IssuesPanel issues={issuesWithGuestFlag} onVote={handleIssueVote} newIssueIds={newIssueIds} onNavigate={onNavigate}/>
             </div>
           </div>
         </div>

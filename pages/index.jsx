@@ -176,7 +176,7 @@ export default function Home() {
       if (_e === "SIGNED_OUT" || !session) {
         setUser(null);
         setNeighborhood("My Neighborhood");
-        setScreen("onboarding");
+        setScreen("guest");  // Show read-only feed, not sign-up wall
         return;
       }
       if (session) {
@@ -228,7 +228,7 @@ export default function Home() {
           }
         } catch(e) {}
       } else {
-        setScreen("onboarding");
+        setScreen("guest");  // No session — show read-only feed
       }
     } finally {
       clearTimeout(timeout);
@@ -280,6 +280,42 @@ export default function Home() {
   );
 
   if (screen==="gate")       return <GatePage onUnlock={handleGateUnlock}/>;
+
+  // Guest mode — read-only feed, no auth required
+  if (screen==="guest") return (
+    <div style={{ height:"100vh", display:"flex", flexDirection:"column", background:"#0F0E0C", overflow:"hidden" }}>
+      <FeedScreen onNavigate={()=>{}} guestMode={true} onNewPost={()=>{}}
+        onJoin={() => setScreen("onboarding")}/>
+      {/* Sticky join bar at bottom */}
+      <div style={{
+        position:"fixed", bottom:0, left:0, right:0, zIndex:50,
+        background:"linear-gradient(to top, #0F0E0C 60%, transparent)",
+        padding:"24px 20px 20px", display:"flex", flexDirection:"column",
+        alignItems:"center", gap:10,
+      }}>
+        <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:16, color:"#F2EDE4", textAlign:"center" }}>
+          Join your neighborhood
+        </div>
+        <div style={{ fontSize:12, color:"#9A9188", textAlign:"center", marginBottom:4 }}>
+          Verify your residency to post, vote, and engage
+        </div>
+        <button onClick={() => setScreen("onboarding")} style={{
+          background:"#D4922A", border:"none", borderRadius:10, padding:"12px 32px",
+          fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:600,
+          color:"#0F0E0C", cursor:"pointer", width:"100%", maxWidth:320,
+        }}>
+          Get started — it's free
+        </button>
+        <button onClick={() => setScreen("onboarding")} style={{
+          background:"transparent", border:"none", fontSize:12,
+          color:"#9A9188", cursor:"pointer", fontFamily:"'DM Sans',sans-serif",
+        }}>
+          Already a member? Sign in
+        </button>
+      </div>
+    </div>
+  );
+
   if (screen==="onboarding") return <OnboardingScreen onComplete={()=>{
     setScreen("feed");
     // Trigger walkthrough for new users coming through onboarding
