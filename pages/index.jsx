@@ -168,72 +168,69 @@ export default function Home() {
       if (!unlocked) { setScreen("gate"); return; }
     }
 
-    initApp();
-
+    // Single source of truth for auth state.
+    // onAuthStateChange fires INITIAL_SESSION on load (with or without a session),
+    // so we don't need a separate initApp() call — that only creates races.
     const { data:{ subscription } } = supabase.auth.onAuthStateChange(async(_e, session) => {
-      // Only ignore token refresh — all other events (SIGNED_IN, SIGNED_OUT, etc.) need handling
+      // Ignore token refreshes — not a state change
       if (_e === "TOKEN_REFRESHED") return;
-      if (_e === "SIGNED_OUT" || !session) {
+
+      if (!session) {
         setUser(null);
         setNeighborhood("My Neighborhood");
-        setScreen("guest");  // Show read-only feed, not sign-up wall
+        setScreen("guest");
         return;
       }
-      if (session) {
-        setUser(session.user);
+
+      // Authenticated — fetch profile
+      setUser(session.user);
+      try {
         const { data:prof, error:profErr } = await supabase.from("profiles")
-          .select("neighborhood_id,neighborhood,onboarded").eq("id",session.user.id).maybeSingle();
+          .select("neighborhood_id,neighborhood,onboarded")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
         if (profErr) {
-          // Profile fetch failed — don't loop back to onboarding, just go to feed
-          setScreen(s => s === "loading" ? "feed" : s);
-          return;
-        }
-        // Only route to onboarding if genuinely not set up
-        if (!prof?.neighborhood_id && !prof?.onboarded) { setScreen("onboarding"); return; }
-        setNeighborhood(prof?.neighborhood || "My Neighborhood");
-        // Don't clobber screen if user is already navigating around the app
-        setScreen(s => (s === "loading" || s === "onboarding") ? "feed" : s);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  async function initApp() {
-    // Safety net: if something hangs, don't leave user on spinner forever
-    const timeout = setTimeout(() => {
-      setScreen(s => s === "loading" ? "onboarding" : s);
-    }, 8000);
-
-    try {
-      const { data:{ session }, error } = await supabase.auth.getSession();
-      if (error) { setAuthError(error.message); setScreen("error"); return; }
-      if (session) {
-        setUser(session.user);
-        const { data:prof, error:profErr } = await supabase.from("profiles")
-          .select("neighborhood_id,neighborhood,onboarded").eq("id",session.user.id).maybeSingle();
-        // If profile fetch errored (network blip, RLS), go to feed rather than
-        // routing existing users back through onboarding on every bad network day
-        if (profErr) {
+          // Network/RLS issue — don't send existing users back to onboarding
           console.warn("Profile fetch error:", profErr.message);
-          setScreen("feed");
+          setScreen(s => (s === "loading" || s === "guest") ? "feed" : s);
           return;
         }
-        if (!prof?.neighborhood_id && !prof?.onboarded) { setScreen("onboarding"); return; }
+
+        if (!prof?.neighborhood_id && !prof?.onboarded) {
+          setScreen("onboarding");
+          return;
+        }
+
         setNeighborhood(prof?.neighborhood || "My Neighborhood");
-        setScreen("feed");
+
+        // Don't clobber screen if user is already navigating
+        setScreen(s => (s === "loading" || s === "guest" || s === "onboarding") ? "feed" : s);
+
+        // Walkthrough for new users
         try {
           if (!localStorage.getItem("th_walkthrough_done")) {
             setTimeout(() => setShowWalkthrough(true), 800);
           }
         } catch(e) {}
-      } else {
-        setScreen("guest");  // No session — show read-only feed
+
+      } catch(e) {
+        console.error("Auth handler error:", e);
+        setScreen(s => s === "loading" ? "guest" : s);
       }
-    } finally {
+    });
+
+    // Hard timeout — if INITIAL_SESSION never fires (Supabase down, network fail)
+    // don't leave user staring at spinner forever
+    const timeout = setTimeout(() => {
+      setScreen(s => s === "loading" ? "guest" : s);
+    }, 6000);
+
+    return () => {
+      subscription.unsubscribe();
       clearTimeout(timeout);
-    }
-  }
+    };
+  }, []);
 
   function navigate(tab) {
     if (tab === "feed" || tab === "civic") setNewPostBadge(false);
