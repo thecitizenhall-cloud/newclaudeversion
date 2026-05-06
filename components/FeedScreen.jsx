@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
+import dynamic from "next/dynamic";
+const IssueDetailScreen = dynamic(() => import("./IssueDetailScreen"), { ssr: false });
 
 // Inject component CSS safely — client only, no hydration mismatch
 function useCSS(id, css) {
@@ -463,7 +465,11 @@ function IssuesPanel({ issues, onVote, newIssueIds, onNavigate }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
-export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNewPost, guestMode = false, onJoin }) {
+export default function FeedScreen({ onNavigate: _onNavigate, initialCivicOpen = false, onNewPost, guestMode = false, onJoin }) {
+  function onNavigate(tab, meta) {
+    if (tab === "issue" && meta?.issueId) { setSelectedIssueId(meta.issueId); return; }
+    _onNavigate && _onNavigate(tab, meta);
+  }
   useCSS("feedscreen-css", css);
   const [posts,        setPosts]        = useState([]);
   const [issues,       setIssues]       = useState([]);
@@ -482,6 +488,7 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNew
   const [showIssues,   setShowIssues]   = useState(false); // mobile civic sheet
   const [loadError,    setLoadError]    = useState(null);
   const [isOffline,    setIsOffline]    = useState(false);
+  const [selectedIssueId, setSelectedIssueId] = useState(null);
   const [newsCards,    setNewsCards]    = useState([]);
   const [newsLoading,  setNewsLoading]  = useState(false);
   const toastTimer  = useRef(null);
@@ -880,6 +887,12 @@ export default function FeedScreen({ onNavigate, initialCivicOpen = false, onNew
         </div>
       )}
 
+      {selectedIssueId && (
+        <div style={{ position:"fixed", inset:0, zIndex:80, background:"#0F0E0C", display:"flex", flexDirection:"column", animation:"slideInRight 0.25s ease" }}>
+          <style>{`@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
+          <IssueDetailScreen issueId={selectedIssueId} onBack={() => setSelectedIssueId(null)} onNavigate={_onNavigate}/>
+        </div>
+      )}
       {toast&&<div className="th-toast"><div className="th-toast-dot"/>{toast}</div>}
     </>
   );
