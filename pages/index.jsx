@@ -9,6 +9,7 @@ const FeedScreen          = dynamic(() => import("../components/FeedScreen"),   
 const ExpertScreen        = dynamic(() => import("../components/ExpertScreen"),        { ssr:false });
 const NotificationsScreen = dynamic(() => import("../components/NotificationsScreen"), { ssr:false });
 const ProfileScreen       = dynamic(() => import("../components/ProfileScreen"),       { ssr:false });
+const IssueDetailScreen   = dynamic(() => import("../components/IssueDetailScreen"),   { ssr:false });
 const Walkthrough         = dynamic(() => import("../components/Walkthrough"),         { ssr:false });
 
 function Spinner() {
@@ -157,6 +158,7 @@ export default function Home() {
   const [authError,      setAuthError]      = useState(null);
   const [showWalkthrough,setShowWalkthrough]= useState(false);
   const [newPostBadge,   setNewPostBadge]   = useState(false);
+  const [selectedIssueId, setSelectedIssueId] = useState(null);
 
   useEffect(() => {
     setMounted(true);
@@ -232,8 +234,13 @@ export default function Home() {
     };
   }, []);
 
-  function navigate(tab) {
+  function navigate(tab, meta) {
     if (tab === "feed" || tab === "civic") setNewPostBadge(false);
+    if (tab === "issue" && meta?.issueId) {
+      setSelectedIssueId(meta.issueId);
+      setScreen("issue");
+      return;
+    }
     setScreen(tab);
   }
 
@@ -324,6 +331,7 @@ export default function Home() {
 
   const content = (
     <>
+      {screen==="issue"   && <IssueDetailScreen   issueId={selectedIssueId} onBack={()=>setScreen("civic")} onNavigate={navigate}/>}
       {screen==="feed"    && <FeedScreen          onNavigate={navigate} onNewPost={()=>setNewPostBadge(false)}/>}
       {screen==="civic"   && <FeedScreen          onNavigate={navigate} initialCivicOpen={true} onNewPost={()=>setNewPostBadge(false)}/>}
       {screen==="expert"  && <ExpertScreen        onNavigate={navigate}/>}
