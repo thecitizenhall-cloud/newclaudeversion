@@ -888,9 +888,16 @@ export default function FeedScreen({ onNavigate: _onNavigate, initialCivicOpen =
       )}
 
       {selectedIssueId && (
-        <div style={{ position:"fixed", inset:0, zIndex:80, background:"#0F0E0C", display:"flex", flexDirection:"column", animation:"slideInRight 0.25s ease" }}>
-          <style>{`@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
-          <IssueDetailScreen issueId={selectedIssueId} onBack={() => setSelectedIssueId(null)} onNavigate={_onNavigate}/>
+        <div style={{
+          position:"fixed", inset:0, zIndex:80,
+          background:"#0F0E0C",
+          display:"flex", flexDirection:"column",
+        }}>
+          <IssueDetailScreen
+            issueId={selectedIssueId}
+            onBack={() => setSelectedIssueId(null)}
+            onNavigate={_onNavigate}
+          />
         </div>
       )}
       {toast&&<div className="th-toast"><div className="th-toast-dot"/>{toast}</div>}
