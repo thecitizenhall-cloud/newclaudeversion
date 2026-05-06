@@ -9,7 +9,6 @@ const FeedScreen          = dynamic(() => import("../components/FeedScreen"),   
 const ExpertScreen        = dynamic(() => import("../components/ExpertScreen"),        { ssr:false });
 const NotificationsScreen = dynamic(() => import("../components/NotificationsScreen"), { ssr:false });
 const ProfileScreen       = dynamic(() => import("../components/ProfileScreen"),       { ssr:false });
-const IssueDetailScreen   = dynamic(() => import("../components/IssueDetailScreen"),   { ssr:false });
 const Walkthrough         = dynamic(() => import("../components/Walkthrough"),         { ssr:false });
 
 function Spinner() {
@@ -158,7 +157,6 @@ export default function Home() {
   const [authError,      setAuthError]      = useState(null);
   const [showWalkthrough,setShowWalkthrough]= useState(false);
   const [newPostBadge,   setNewPostBadge]   = useState(false);
-  const [selectedIssueId, setSelectedIssueId] = useState(null);
 
   useEffect(() => {
     setMounted(true);
@@ -170,77 +168,54 @@ export default function Home() {
       if (!unlocked) { setScreen("gate"); return; }
     }
 
-    // Single source of truth for auth state.
-    // onAuthStateChange fires INITIAL_SESSION on load (with or without a session),
-    // so we don't need a separate initApp() call — that only creates races.
-    const { data:{ subscription } } = supabase.auth.onAuthStateChange(async(_e, session) => {
-      // Ignore token refreshes — not a state change
-      if (_e === "TOKEN_REFRESHED") return;
+    initApp();
 
-      if (!session) {
+    const { data:{ subscription } } = supabase.auth.onAuthStateChange(async(_e, session) => {
+      // Only ignore token refresh — all other events (SIGNED_IN, SIGNED_OUT, etc.) need handling
+      if (_e === "TOKEN_REFRESHED") return;
+      if (_e === "SIGNED_OUT" || !session) {
         setUser(null);
         setNeighborhood("My Neighborhood");
-        setScreen("guest");
+        setScreen("onboarding");
         return;
       }
-
-      // Authenticated — fetch profile
-      setUser(session.user);
-      try {
-        const { data:prof, error:profErr } = await supabase.from("profiles")
-          .select("neighborhood_id,neighborhood,onboarded")
-          .eq("id", session.user.id)
-          .maybeSingle();
-
-        if (profErr) {
-          // Network/RLS issue — don't send existing users back to onboarding
-          console.warn("Profile fetch error:", profErr.message);
-          setScreen(s => (s === "loading" || s === "guest") ? "feed" : s);
-          return;
-        }
-
-        if (!prof?.neighborhood_id && !prof?.onboarded) {
-          setScreen("onboarding");
-          return;
-        }
-
-        setNeighborhood(prof?.neighborhood || "My Neighborhood");
-
-        // Don't clobber screen if user is already navigating
-        setScreen(s => (s === "loading" || s === "guest" || s === "onboarding") ? "feed" : s);
-
-        // Walkthrough for new users
-        try {
-          if (!localStorage.getItem("th_walkthrough_done")) {
-            setTimeout(() => setShowWalkthrough(true), 800);
-          }
-        } catch(e) {}
-
-      } catch(e) {
-        console.error("Auth handler error:", e);
-        setScreen(s => s === "loading" ? "guest" : s);
+      if (session) {
+        setUser(session.user);
+        const { data:prof } = await supabase.from("profiles")
+          .select("neighborhood_id,neighborhood,onboarded").eq("id",session.user.id).maybeSingle();
+        // Only route to onboarding if genuinely not set up (not a race condition)
+        if (!prof?.neighborhood_id && !prof?.onboarded) { setScreen("onboarding"); return; }
+        setNeighborhood(prof?.neighborhood||"My Neighborhood");
+        // Don't clobber screen if user is already navigating around the app
+        setScreen(s => (s === "loading" || s === "onboarding") ? "feed" : s);
       }
     });
 
-    // Hard timeout — if INITIAL_SESSION never fires (Supabase down, network fail)
-    // don't leave user staring at spinner forever
-    const timeout = setTimeout(() => {
-      setScreen(s => s === "loading" ? "guest" : s);
-    }, 6000);
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeout);
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
-  function navigate(tab, meta) {
-    if (tab === "feed" || tab === "civic") setNewPostBadge(false);
-    if (tab === "issue" && meta?.issueId) {
-      setSelectedIssueId(meta.issueId);
-      setScreen("issue");
-      return;
+  async function initApp() {
+    const { data:{ session }, error } = await supabase.auth.getSession();
+    if (error) { setAuthError(error.message); setScreen("error"); return; }
+    if (session) {
+      setUser(session.user);
+      const { data:prof } = await supabase.from("profiles")
+        .select("neighborhood_id,neighborhood").eq("id",session.user.id).maybeSingle();
+      if (!prof?.neighborhood_id) { setScreen("onboarding"); return; }
+      setNeighborhood(prof.neighborhood||"My Neighborhood");
+      setScreen("feed");
+      try {
+        if (!localStorage.getItem("th_walkthrough_done")) {
+          setTimeout(()=>setShowWalkthrough(true), 800);
+        }
+      } catch(e) {}
+    } else {
+      setScreen("onboarding");
     }
+  }
+
+  function navigate(tab) {
+    if (tab === "feed" || tab === "civic") setNewPostBadge(false);
     setScreen(tab);
   }
 
@@ -284,42 +259,6 @@ export default function Home() {
   );
 
   if (screen==="gate")       return <GatePage onUnlock={handleGateUnlock}/>;
-
-  // Guest mode — read-only feed, no auth required
-  if (screen==="guest") return (
-    <div style={{ height:"100vh", display:"flex", flexDirection:"column", background:"#0F0E0C", overflow:"hidden" }}>
-      <FeedScreen onNavigate={()=>{}} guestMode={true} onNewPost={()=>{}}
-        onJoin={() => setScreen("onboarding")}/>
-      {/* Sticky join bar at bottom */}
-      <div style={{
-        position:"fixed", bottom:0, left:0, right:0, zIndex:50,
-        background:"linear-gradient(to top, #0F0E0C 60%, transparent)",
-        padding:"24px 20px 20px", display:"flex", flexDirection:"column",
-        alignItems:"center", gap:10,
-      }}>
-        <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:16, color:"#F2EDE4", textAlign:"center" }}>
-          Join your neighborhood
-        </div>
-        <div style={{ fontSize:12, color:"#9A9188", textAlign:"center", marginBottom:4 }}>
-          Verify your residency to post, vote, and engage
-        </div>
-        <button onClick={() => setScreen("onboarding")} style={{
-          background:"#D4922A", border:"none", borderRadius:10, padding:"12px 32px",
-          fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:600,
-          color:"#0F0E0C", cursor:"pointer", width:"100%", maxWidth:320,
-        }}>
-          Get started — it's free
-        </button>
-        <button onClick={() => setScreen("onboarding")} style={{
-          background:"transparent", border:"none", fontSize:12,
-          color:"#9A9188", cursor:"pointer", fontFamily:"'DM Sans',sans-serif",
-        }}>
-          Already a member? Sign in
-        </button>
-      </div>
-    </div>
-  );
-
   if (screen==="onboarding") return <OnboardingScreen onComplete={()=>{
     setScreen("feed");
     // Trigger walkthrough for new users coming through onboarding
@@ -331,7 +270,6 @@ export default function Home() {
 
   const content = (
     <>
-      {screen==="issue"   && <IssueDetailScreen   issueId={selectedIssueId} onBack={()=>setScreen("civic")} onNavigate={navigate}/>}
       {screen==="feed"    && <FeedScreen          onNavigate={navigate} onNewPost={()=>setNewPostBadge(false)}/>}
       {screen==="civic"   && <FeedScreen          onNavigate={navigate} initialCivicOpen={true} onNewPost={()=>setNewPostBadge(false)}/>}
       {screen==="expert"  && <ExpertScreen        onNavigate={navigate}/>}
@@ -345,13 +283,13 @@ export default function Home() {
     <>
       <style>{`
         .app-shell { display:grid; grid-template-columns:200px 1fr; height:100vh; overflow:hidden; }
-        .app-sidebar { display:flex; flex-direction:column; width:200px; flex-shrink:0; }
-        .app-content { overflow:hidden; display:flex; flex-direction:column; height:100vh; min-width:0; }
+        .app-sidebar { display:flex; flex-direction:column; }
+        .app-content { overflow:hidden; display:flex; flex-direction:column; height:100vh; }
         .app-bottom-tabs { display:none; }
         @media(max-width:767px) {
-          .app-shell { display:block; }
-          .app-sidebar { display:none !important; width:0; }
-          .app-content { height:calc(100vh - 60px - env(safe-area-inset-bottom)); width:100vw; }
+          .app-shell { grid-template-columns:1fr; }
+          .app-sidebar { display:none; }
+          .app-content { height:calc(100vh - 60px - env(safe-area-inset-bottom)); }
           .app-bottom-tabs { display:flex; position:fixed; bottom:0; left:0; right:0; z-index:50;
             padding-bottom:env(safe-area-inset-bottom); background:#1A1916; }
         }
