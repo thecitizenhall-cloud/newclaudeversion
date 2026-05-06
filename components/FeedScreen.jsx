@@ -466,10 +466,6 @@ function IssuesPanel({ issues, onVote, newIssueIds, onNavigate }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────
 export default function FeedScreen({ onNavigate: _onNavigate, initialCivicOpen = false, onNewPost, guestMode = false, onJoin }) {
-  function onNavigate(tab, meta) {
-    if (tab === "issue" && meta?.issueId) { setSelectedIssueId(meta.issueId); return; }
-    _onNavigate && _onNavigate(tab, meta);
-  }
   useCSS("feedscreen-css", css);
   const [posts,        setPosts]        = useState([]);
   const [issues,       setIssues]       = useState([]);
@@ -493,6 +489,11 @@ export default function FeedScreen({ onNavigate: _onNavigate, initialCivicOpen =
   const [newsLoading,  setNewsLoading]  = useState(false);
   const toastTimer  = useRef(null);
   const channelRef  = useRef(null);
+
+  function onNavigate(tab, meta) {
+    if (tab === "issue" && meta?.issueId) { setSelectedIssueId(meta.issueId); return; }
+    _onNavigate && _onNavigate(tab, meta);
+  }
   const hoodIdRef   = useRef(null);
 
   function showToast(msg) {
