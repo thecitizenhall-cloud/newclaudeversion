@@ -268,7 +268,7 @@ export default function IssueDetailScreen({ issueId, onBack, onNavigate }) {
 
       // Load issue
       const { data: iss } = await supabase.from("civic_issues")
-        .select("*, neighborhoods(name), profiles!official_id(display_name)")
+        .select("*, neighborhoods(name)")
         .eq("id", issueId).maybeSingle();
       if (!iss) { onBack(); return; }
 
